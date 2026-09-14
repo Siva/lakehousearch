@@ -2,6 +2,7 @@ export type MedallionLayer = 'bronze' | 'silver' | 'gold';
 export type EnterpriseDomain = 'customer' | 'orders' | 'products' | 'finance' | 'governance';
 export type InsuranceDomain = EnterpriseDomain; // Aliased for backward compatibility
 export type SqlPlatform = 'delta' | 'snowflake' | 'bigquery';
+export type PythonPlatform = 'pyspark_dlt' | 'delta_lake_python' | 'pydantic_v2' | 'pyspark_streaming' | 'polars_duckdb';
 
 export interface ColumnDefinition {
   name: string;
@@ -94,6 +95,9 @@ export interface TransformationRule {
   sourceLayer: MedallionLayer;
   targetLayer: MedallionLayer;
   summary: string;
+  pythonSnippet: string;
+  dltSnippet?: string;
   sqlSnippet: string;
+  runnablePythonScript?: string;
   businessRules: string[];
 }

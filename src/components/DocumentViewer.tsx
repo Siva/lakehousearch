@@ -7,15 +7,15 @@ interface DocumentViewerProps {
 
 export const ENTERPRISE_MARKDOWN_SPEC = `---
 name: enterprise-medallion-lakehouse-standards
-description: Comprehensive enterprise engineering standards, Medallion patterns (Bronze, Silver, and Gold), and conformed domain modeling constructs (Customer, Orders, Products, Finance) for analytical, executive BI, and regulatory compliance reporting (SOX 404, GDPR Art. 17, SOC 2, BCBS 239, GAAP ASC 606) with audit lineage columns, SCD2, and naming conventions.
-version: 1.0.0
+description: Comprehensive enterprise engineering standards, SQL transformation patterns, Medallion tiers (Bronze, Silver, and Gold), and conformed domain modeling constructs (Customer, Orders, Products, Finance) for analytical, executive BI, and regulatory compliance reporting (SOX 404, GDPR Art. 17, SOC 2, BCBS 239, GAAP ASC 606) with audit lineage columns, SCD2, and naming conventions.
+version: 1.1.0
 domain: Enterprise Data Lakehouse (Commerce, SaaS, Supply Chain, Finance)
-architecture: Medallion Lakehouse (Bronze -> Silver -> Gold)
+architecture: SQL-Native Medallion Lakehouse (Bronze -> Silver -> Gold)
 ---
 
-# Enterprise Standards: Medallion Architecture Data Lakehouse Standards
+# Enterprise Standards: Medallion Architecture Data Lakehouse Standards (Pure SQL)
 
-This specification defines the enterprise data engineering, data modeling, lineage tracking, and governance standards for implementing **Bronze**, **Silver**, and **Gold** layers in a modern Data Lakehouse (Databricks Delta Lake, Apache Iceberg, Snowflake, or Google BigQuery).
+This specification defines the enterprise data engineering, data modeling, lineage tracking, and governance standards for implementing **Bronze**, **Silver**, and **Gold** layers in a modern Data Lakehouse using **Pure Standard SQL (Databricks Delta Lake SQL, Snowflake, Google BigQuery, ANSI SQL)**.
 
 ---
 
@@ -24,18 +24,18 @@ This specification defines the enterprise data engineering, data modeling, linea
 The Medallion pattern organizes data processing into three progressive refinement tiers:
 
 - **BRONZE LAYER (Raw / Ingestion / Immutable Audit Store)**:
-  - Lands raw operational payloads directly from transactional databases (PostgreSQL, MySQL), ERP systems (SAP, NetSuite), CRMs (Salesforce, HubSpot), payment gateways (Stripe), and Kafka streaming topics.
+  - Lands raw operational payloads directly from transactional databases (PostgreSQL, MySQL), ERP systems (SAP, NetSuite), CRMs (Salesforce, HubSpot), payment gateways (Stripe), and Kafka streaming topics using Streaming SQL (\`CREATE OR REFRESH STREAMING TABLE\`).
   - Append-only, immutable history with ingestion timestamps.
-  - Minimal or zero transformation; preserves source schema drift and raw JSON/Avro/Parquet payloads.
+  - Minimal or zero transformation; preserves source schema drift and raw JSON/Avro/Parquet payloads with rescue column support.
 
 - **SILVER LAYER (Cleaned / Conformed / 3NF & Bi-Temporal SCD2)**:
   - Single Source of Truth (SSOT) at atomic business transaction level.
   - Normalized relational models (Customer Accounts, Order Headers, Line Items, Products, Payment Transactions).
-  - Bi-temporal tracking (SCD Type 2: Business Validity Dates + Ingestion Dates).
-  - Standardized audit columns, deterministic SHA-256 record hashes, deduplication, and automated DQ gates.
+  - Bi-temporal tracking implemented via SQL \`MERGE INTO\` (SCD Type 2: Business Validity Dates + Ingestion Dates).
+  - Standardized audit columns, deterministic SHA-256 record hashes in SQL (\`SHA2(CONCAT_WS('||', ...), 256)\`), deduplication, and automated SQL constraint checks.
 
 - **GOLD LAYER (Curated / Kimball Star Schemas / Financial Marts)**:
-  - Fact & Dimension tables optimized for analytical queries (OLAP).
+  - Fact & Dimension tables optimized for analytical queries (OLAP) via pure SQL joins and window aggregations.
   - Conformed dimensions with integer surrogate keys (\`_sk\`).
   - Periodic monthly snapshots tracking MRR, expansion, contraction, churn, and ASC 606 revenue recognition.
   - Pre-aggregated rollup marts for sub-second executive BI query performance.

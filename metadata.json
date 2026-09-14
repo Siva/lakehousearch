@@ -1,6 +1,6 @@
 {
   "name": "Enterprise Medallion Architecture Standards & Modeling Guide",
-  "description": "Enterprise standards, Medallion Bronze, Silver, and Gold lakehouse architecture, data modeling patterns, bi-temporal SCD2, audit lineage, and governance frameworks.",
+  "description": "Python-powered enterprise Medallion lakehouse standards (Bronze, Silver, Gold), pure SQL transformation pipelines, multi-dialect SQL DDL generator, bi-temporal SCD2, and compliance frameworks.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

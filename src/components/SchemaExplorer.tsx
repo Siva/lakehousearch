@@ -195,7 +195,7 @@ export default function SchemaExplorer({ onSelectTableForDdl }: SchemaExplorerPr
                     onClick={() => onSelectTableForDdl(activeTable.name)}
                     className="inline-flex items-center gap-1 text-xs font-medium text-indigo-400 hover:text-indigo-300 self-start shrink-0 rounded-lg bg-slate-900 px-2.5 py-1.5 border border-slate-800 hover:border-slate-700 shadow-inner"
                   >
-                    <span>Generate DDL</span>
+                    <span>Generate Python & DDL</span>
                     <ArrowUpRight className="h-3.5 w-3.5" />
                   </button>
                 )}

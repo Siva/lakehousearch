@@ -11,10 +11,10 @@ export default function Header({ activeTab, setActiveTab, onExportMarkdown }: He
     { id: 'overview', label: 'Architecture & Flow', icon: Layers },
     { id: 'schemas', label: 'Silver & Gold Schemas', icon: Database },
     { id: 'audit-scd2', label: 'Audit & SCD2 Engine', icon: ShieldCheck },
-    { id: 'transformations', label: 'Transformations', icon: Sparkles },
-    { id: 'naming', label: 'Naming & Types', icon: BookOpen },
+    { id: 'transformations', label: 'SQL Pipeline Engine', icon: Sparkles },
+    { id: 'naming', label: 'Naming & Taxonomy', icon: BookOpen },
     { id: 'regulatory', label: 'Governance Matrix', icon: ShieldCheck },
-    { id: 'ddl', label: 'DDL Generator', icon: Database },
+    { id: 'ddl', label: 'SQL DDL Generator', icon: Database },
     { id: 'document', label: 'Skill Spec (.md)', icon: FileDown },
   ];
 
@@ -36,18 +36,21 @@ export default function Header({ activeTab, setActiveTab, onExportMarkdown }: He
                 </span>
               </div>
               <p className="text-xs text-slate-400 hidden sm:block">
-                Bronze, Silver & Gold Lakehouse • Customer, Orders, Products & Finance • SOX & GDPR Audit
+                Bronze, Silver & Gold Lakehouse • Pure SQL Architecture • Enterprise Customer, Orders & Finance
               </p>
             </div>
           </div>
 
           <div className="flex items-center gap-2.5">
             <div className="hidden md:flex items-center gap-2">
+              <span className="px-3 py-1 bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-xs rounded-full font-mono uppercase tracking-wider">
+                Python App Server
+              </span>
               <span className="px-3 py-1 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs rounded-full font-mono uppercase tracking-wider">
-                Lineage Enabled
+                SQL Only
               </span>
               <span className="px-3 py-1 bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs rounded-full font-mono uppercase tracking-wider">
-                Governance Ready
+                Lineage Enabled
               </span>
             </div>
 

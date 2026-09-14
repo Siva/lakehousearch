@@ -275,20 +275,24 @@ export default function AuditScd2Sandbox() {
           </h3>
         </div>
         <p className="text-xs text-slate-300 leading-relaxed mb-4">
-          Instead of performing 30-way NULL-safe equality comparisons on merge conditions, the Silver ingestion pipeline pre-calculates 
-          a deterministic SHA-256 payload hash of all non-audit business attributes. This drastically reduces CPU overhead on distributed Spark, Delta Lake, and Snowflake engines.
+          Instead of performing 30-way NULL-safe equality comparisons on merge conditions, the Silver ingestion pipeline in SQL pre-calculates 
+          a deterministic SHA-256 payload hash across all non-audit business attributes. This drastically reduces CPU shuffle and memory overhead during distributed Delta Lake, Snowflake, and BigQuery MERGE operations.
         </p>
 
-        <div className="rounded-xl bg-slate-950 p-4 font-mono text-xs text-emerald-300 overflow-x-auto border border-slate-800 shadow-inner">
-          <pre>{`-- Spark SQL / Databricks Delta Lake SHA-256 Hash Generation
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div>
+            <div className="text-xs font-semibold text-slate-400 font-mono mb-2 flex items-center justify-between">
+              <span>Databricks Delta Lake / Spark SQL:</span>
+              <span className="text-indigo-400">SHA2 + CONCAT_WS</span>
+            </div>
+            <div className="rounded-xl bg-slate-950 p-4 font-mono text-xs text-emerald-300 overflow-x-auto border border-slate-800 shadow-inner max-h-[300px]">
+              <pre>{`-- Databricks Delta Lake SQL Pre-calculated Hash
 SELECT 
     account_id AS customer_account_id,
     plan_tier AS tier_plan_cd,
     status AS account_status_cd,
     licensed_seats AS seat_licensed_cnt,
     mrr_amount AS mrr_amt,
-    country_code AS country_iso_cd,
-    -- Deterministic Concatenation with double-pipe delimiter and COALESCE
     SHA2(
         CONCAT_WS('||',
             COALESCE(UPPER(TRIM(plan_tier)), ''),
@@ -297,10 +301,40 @@ SELECT
             COALESCE(CAST(mrr_amount AS STRING), '0.00'),
             COALESCE(UPPER(TRIM(country_code)), ''),
             COALESCE(CAST(has_enterprise_sla AS STRING), 'false')
-        ), 
+        ),
         256
     ) AS _record_hash
 FROM lakehouse_bronze.brz_raw_customer_events;`}</pre>
+            </div>
+          </div>
+
+          <div>
+            <div className="text-xs font-semibold text-slate-400 font-mono mb-2 flex items-center justify-between">
+              <span>Snowflake / BigQuery SQL:</span>
+              <span className="text-slate-500">Cloud Data Warehouse SQL</span>
+            </div>
+            <div className="rounded-xl bg-slate-950 p-4 font-mono text-xs text-emerald-300 overflow-x-auto border border-slate-800 shadow-inner max-h-[300px]">
+              <pre>{`-- Snowflake SQL Deterministic Hash Generation
+SELECT 
+    account_id AS customer_account_id,
+    plan_tier AS tier_plan_cd,
+    status AS account_status_cd,
+    licensed_seats AS seat_licensed_cnt,
+    mrr_amount AS mrr_amt,
+    SHA2(
+        CONCAT_WS('||',
+            NVL(UPPER(TRIM(plan_tier)), ''),
+            NVL(UPPER(TRIM(status)), ''),
+            NVL(licensed_seats::VARCHAR, '0'),
+            NVL(mrr_amount::VARCHAR, '0.00'),
+            NVL(UPPER(TRIM(country_code)), ''),
+            NVL(has_enterprise_sla::VARCHAR, 'false')
+        ),
+        256
+    ) AS _record_hash
+FROM LAKEHOUSE_BRONZE.BRZ_RAW_CUSTOMER_EVENTS;`}</pre>
+            </div>
+          </div>
         </div>
       </div>
     </div>
