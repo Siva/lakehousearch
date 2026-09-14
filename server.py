@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """
-Python Medallion Lakehouse Application Server
-Pure Python 3 backend serving the Lakehouse Architecture Standards UI
-and providing a live SQL execution engine powered by in-memory SQLite.
+Enterprise Medallion Architecture Standards & SQL Modeling Engine
+Pure Python 3 backend (Zero external pip dependencies, standard library only).
+Serves the HTML/CSS/JS frontend and provides a live in-memory SQL execution engine
+with pre-seeded Bronze, Silver, and Gold Medallion tables.
 """
 
 import http.server
@@ -14,541 +15,18 @@ import time
 import mimetypes
 import sqlite3
 import hashlib
+from datetime import datetime
 from typing import Dict, Any, List
 
-# Hardcoded to 3000 per infrastructure network configuration
 PORT = 3000
 HOST = '0.0.0.0'
-DIST_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'dist')
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-# Global database connection for SQL simulation
+# Global in-memory SQLite database
 db_conn = sqlite3.connect(':memory:', check_same_thread=False)
 
-def generate_standalone_html() -> str:
-    """Generates an all-in-one pure Python HTML/JS interface when no npm/dist build is present."""
-    return """<!DOCTYPE html>
-<html lang="en" class="dark">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Enterprise Medallion Architecture Standards & SQL Modeling Guide (Python Native)</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = {
-            darkMode: 'class',
-            theme: {
-                extend: {
-                    colors: {
-                        slate: { 950: '#030712', 900: '#0f172a', 800: '#1e293b' }
-                    }
-                }
-            }
-        }
-    </script>
-    <style>
-        body { background-color: #030712; color: #f8fafc; font-family: system-ui, -apple-system, sans-serif; }
-        pre, code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
-    </style>
-</head>
-<body class="min-h-screen bg-slate-950 text-slate-100 flex flex-col">
-    <!-- Header -->
-    <header class="border-b border-slate-800 bg-slate-900/90 backdrop-blur sticky top-0 z-50 px-6 py-4 flex flex-wrap items-center justify-between gap-4">
-        <div class="flex items-center gap-3">
-            <div class="h-10 w-10 rounded-xl bg-indigo-600 flex items-center justify-center font-bold text-lg text-white shadow-lg shadow-indigo-500/30">
-                💎
-            </div>
-            <div>
-                <div class="flex items-center gap-2">
-                    <h1 class="text-base font-bold text-white tracking-tight">Enterprise Medallion Lakehouse Standards</h1>
-                    <span class="px-2 py-0.5 text-[10px] font-bold rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">PYTHON NATIVE</span>
-                    <span class="px-2 py-0.5 text-[10px] font-bold rounded-full bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">ZERO NPM</span>
-                </div>
-                <p class="text-xs text-slate-400">Pure Python Backend (sqlite3 in-memory) • 100% SQL Data Engineering Standards</p>
-            </div>
-        </div>
-        <div class="flex items-center gap-3 text-xs">
-            <button onclick="resetDatabase()" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-medium border border-slate-700 transition">
-                ↻ Reset Lakehouse DB
-            </button>
-            <div class="px-3 py-1.5 rounded-lg bg-emerald-950/60 border border-emerald-800/40 text-emerald-300 font-mono">
-                Port 3000 • Online
-            </div>
-        </div>
-    </header>
-
-    <!-- Navigation Bar -->
-    <nav class="border-b border-slate-800 bg-slate-900/50 px-6 flex gap-2 overflow-x-auto text-xs font-semibold">
-        <button onclick="switchTab('sql')" id="tab-sql" class="tab-btn px-4 py-3 border-b-2 border-indigo-500 text-indigo-400 flex items-center gap-2">
-            ⚡ Interactive SQL Runner
-        </button>
-        <button onclick="switchTab('schema')" id="tab-schema" class="tab-btn px-4 py-3 border-b-2 border-transparent text-slate-400 hover:text-white flex items-center gap-2">
-            🏛️ Medallion Tables (Bronze, Silver, Gold)
-        </button>
-        <button onclick="switchTab('ddl')" id="tab-ddl" class="tab-btn px-4 py-3 border-b-2 border-transparent text-slate-400 hover:text-white flex items-center gap-2">
-            📜 Multi-Dialect SQL DDL
-        </button>
-        <button onclick="switchTab('scd2')" id="tab-scd2" class="tab-btn px-4 py-3 border-b-2 border-transparent text-slate-400 hover:text-white flex items-center gap-2">
-            ⏳ Bi-Temporal SCD2 & Hashes
-        </button>
-        <button onclick="switchTab('arch')" id="tab-arch" class="tab-btn px-4 py-3 border-b-2 border-transparent text-slate-400 hover:text-white flex items-center gap-2">
-            📐 Architectural Tenets
-        </button>
-    </nav>
-
-    <!-- Main Content Container -->
-    <main class="flex-1 p-6 max-w-7xl mx-auto w-full space-y-6">
-
-        <!-- TAB 1: INTERACTIVE SQL RUNNER -->
-        <section id="view-sql" class="tab-view space-y-6">
-            <div class="rounded-xl border border-slate-800 bg-slate-900 p-6">
-                <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
-                    <div>
-                        <h2 class="text-base font-bold text-white flex items-center gap-2">
-                            <span>Interactive SQL Lakehouse Runner</span>
-                        </h2>
-                        <p class="text-xs text-slate-400 mt-0.5">
-                            Executes directly in the Python in-memory SQLite database pre-seeded with Bronze, Silver, and Gold tables.
-                        </p>
-                    </div>
-                    <button onclick="runQuery()" id="run-btn" class="inline-flex items-center justify-center gap-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 px-5 py-2 text-xs font-bold text-white shadow-lg shadow-indigo-600/30 transition">
-                        ▶ Run SQL (Ctrl+Enter)
-                    </button>
-                </div>
-
-                <!-- Template Selector -->
-                <div class="mb-3 flex flex-wrap gap-2 items-center text-xs">
-                    <span class="text-slate-500 font-semibold uppercase text-[10px] tracking-wider">Presets:</span>
-                    <button onclick="loadTemplate('silver_current')" class="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 font-mono text-[11px] border border-slate-700">
-                        Silver Current Accounts (SCD2)
-                    </button>
-                    <button onclick="loadTemplate('gold_star')" class="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 font-mono text-[11px] border border-slate-700">
-                        Gold Kimball Sales & Margins
-                    </button>
-                    <button onclick="loadTemplate('hash_diff')" class="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 font-mono text-[11px] border border-slate-700">
-                        Deterministic SHA-256 Diff
-                    </button>
-                    <button onclick="loadTemplate('bronze_raw')" class="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 font-mono text-[11px] border border-slate-700">
-                        Bronze Raw Audit Ingest
-                    </button>
-                    <button onclick="loadTemplate('scd2_history')" class="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 font-mono text-[11px] border border-slate-700">
-                        Account Revision History
-                    </button>
-                </div>
-
-                <!-- Query Text Area -->
-                <div class="relative rounded-xl border border-slate-800 bg-slate-950 overflow-hidden shadow-inner">
-                    <textarea id="sql-editor" rows="6" class="w-full bg-transparent p-4 font-mono text-xs text-emerald-300 focus:outline-none resize-y selection:bg-indigo-500/30" placeholder="Enter standard SQL statement..."></textarea>
-                </div>
-
-                <!-- Status Banner -->
-                <div id="query-status" class="mt-3 flex items-center justify-between text-xs text-slate-400 font-mono">
-                    <span id="status-text">Ready. Enter SQL and press Run.</span>
-                    <span id="exec-time" class="text-slate-500"></span>
-                </div>
-            </div>
-
-            <!-- Query Results Table -->
-            <div class="rounded-xl border border-slate-800 bg-slate-900 p-6 overflow-hidden">
-                <div class="flex items-center justify-between mb-4">
-                    <h3 class="text-sm font-bold text-white flex items-center gap-2">
-                        <span>Query Results</span>
-                        <span id="row-count-badge" class="px-2 py-0.5 rounded text-[10px] bg-slate-800 text-slate-400">0 rows</span>
-                    </h3>
-                </div>
-                <div id="results-container" class="overflow-x-auto max-h-96 rounded-lg border border-slate-800 bg-slate-950">
-                    <div class="p-8 text-center text-xs text-slate-500">
-                        No query executed yet. Click "Run SQL" to view results.
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <!-- TAB 2: MEDALLION TABLES & SCHEMA -->
-        <section id="view-schema" class="tab-view hidden space-y-6">
-            <div class="rounded-xl border border-slate-800 bg-slate-900 p-6">
-                <h2 class="text-base font-bold text-white mb-2">Medallion Table Dictionary & Live Counts</h2>
-                <p class="text-xs text-slate-400 mb-6">Real-time status of all in-memory tables managed by the Python Lakehouse Engine.</p>
-                
-                <div id="tables-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    <div class="p-4 rounded-xl border border-slate-800 bg-slate-950 animate-pulse">
-                        <div class="h-4 bg-slate-800 rounded w-2/3 mb-2"></div>
-                        <div class="h-3 bg-slate-800 rounded w-1/3"></div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="rounded-xl border border-slate-800 bg-slate-900 p-6">
-                <h3 class="text-sm font-bold text-white mb-3">14 Mandatory Enterprise Audit Columns</h3>
-                <div class="overflow-x-auto">
-                    <table class="w-full text-left text-xs border-collapse font-mono">
-                        <thead>
-                            <tr class="border-b border-slate-800 text-slate-400 text-[11px]">
-                                <th class="py-2.5 px-3">Column Name</th>
-                                <th class="py-2.5 px-3">Data Type</th>
-                                <th class="py-2.5 px-3">Category</th>
-                                <th class="py-2.5 px-3">Purpose & Rule</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-slate-800/60 text-slate-300">
-                            <tr><td class="py-2 px-3 text-indigo-400 font-bold">_src_sys_cd</td><td class="py-2 px-3 text-slate-400">VARCHAR(32)</td><td class="py-2 px-3 text-amber-400">Source Lineage</td><td class="py-2 px-3 text-slate-400">Originating system (e.g. SFDC, STRIPE, KAFKA).</td></tr>
-                            <tr><td class="py-2 px-3 text-indigo-400 font-bold">_ingest_ts</td><td class="py-2 px-3 text-slate-400">TIMESTAMP</td><td class="py-2 px-3 text-amber-400">Lineage</td><td class="py-2 px-3 text-slate-400">Bronze ingestion timestamp UTC.</td></tr>
-                            <tr><td class="py-2 px-3 text-indigo-400 font-bold">_etl_job_id</td><td class="py-2 px-3 text-slate-400">VARCHAR(64)</td><td class="py-2 px-3 text-indigo-400">Execution</td><td class="py-2 px-3 text-slate-400">Pipeline execution UUID / run ID.</td></tr>
-                            <tr><td class="py-2 px-3 text-indigo-400 font-bold">_valid_from_ts</td><td class="py-2 px-3 text-slate-400">TIMESTAMP</td><td class="py-2 px-3 text-emerald-400">SCD Type 2</td><td class="py-2 px-3 text-slate-400">Start of business reality interval.</td></tr>
-                            <tr><td class="py-2 px-3 text-indigo-400 font-bold">_valid_to_ts</td><td class="py-2 px-3 text-slate-400">TIMESTAMP</td><td class="py-2 px-3 text-emerald-400">SCD Type 2</td><td class="py-2 px-3 text-slate-400">End of business validity ('9999-12-31' for active).</td></tr>
-                            <tr><td class="py-2 px-3 text-indigo-400 font-bold">_is_current_flg</td><td class="py-2 px-3 text-slate-400">BOOLEAN</td><td class="py-2 px-3 text-emerald-400">SCD Type 2</td><td class="py-2 px-3 text-slate-400">True (1) if record is the active current version.</td></tr>
-                            <tr><td class="py-2 px-3 text-indigo-400 font-bold">_record_hash</td><td class="py-2 px-3 text-slate-400">CHAR(64)</td><td class="py-2 px-3 text-pink-400">CDC / Diff</td><td class="py-2 px-3 text-slate-400">SHA-256 payload hash across non-audit business fields.</td></tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </section>
-
-        <!-- TAB 3: MULTI-DIALECT SQL DDL -->
-        <section id="view-ddl" class="tab-view hidden space-y-6">
-            <div class="rounded-xl border border-slate-800 bg-slate-900 p-6">
-                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
-                    <div>
-                        <h2 class="text-base font-bold text-white">Multi-Dialect SQL DDL Generator</h2>
-                        <p class="text-xs text-slate-400">Pure SQL schema definitions for Delta Lake, Snowflake, BigQuery, and ANSI SQL.</p>
-                    </div>
-                    <div class="flex gap-2">
-                        <button onclick="showDdl('delta')" id="btn-ddl-delta" class="ddl-tab-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 text-white">Databricks Delta</button>
-                        <button onclick="showDdl('snowflake')" id="btn-ddl-snowflake" class="ddl-tab-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 text-slate-400">Snowflake</button>
-                        <button onclick="showDdl('bigquery')" id="btn-ddl-bigquery" class="ddl-tab-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 text-slate-400">BigQuery</button>
-                    </div>
-                </div>
-
-                <div class="rounded-xl bg-slate-950 p-4 font-mono text-xs text-emerald-300 overflow-x-auto border border-slate-800 shadow-inner max-h-[500px]">
-                    <pre id="ddl-output"></pre>
-                </div>
-            </div>
-        </section>
-
-        <!-- TAB 4: SCD2 & HASH DIFF -->
-        <section id="view-scd2" class="tab-view hidden space-y-6">
-            <div class="rounded-xl border border-slate-800 bg-slate-900 p-6">
-                <h2 class="text-base font-bold text-white mb-2">Bi-Temporal SCD Type 2 & SHA-256 Hash Diff</h2>
-                <p class="text-xs text-slate-300 leading-relaxed mb-6">
-                    Customer subscriptions, account tiers, and pricing terms evolve continuously. Silver dimension entities MUST preserve both transaction posting time and real-world validity intervals.
-                </p>
-
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    <div class="rounded-xl bg-slate-950 p-4 border border-slate-800">
-                        <h3 class="text-xs font-bold uppercase tracking-wider text-indigo-400 mb-2">Databricks / Spark SQL Hash Function</h3>
-                        <pre class="font-mono text-xs text-emerald-300 overflow-x-auto leading-relaxed">SELECT 
-    account_id AS customer_account_id,
-    plan_tier AS tier_plan_cd,
-    status AS account_status_cd,
-    mrr_amount AS mrr_amt,
-    SHA2(
-        CONCAT_WS('||',
-            COALESCE(UPPER(TRIM(plan_tier)), ''),
-            COALESCE(UPPER(TRIM(status)), ''),
-            COALESCE(CAST(mrr_amount AS STRING), '0.00'),
-            COALESCE(UPPER(TRIM(country_code)), '')
-        ),
-        256
-    ) AS _record_hash
-FROM lakehouse_bronze.brz_raw_customer_events;</pre>
-                    </div>
-
-                    <div class="rounded-xl bg-slate-950 p-4 border border-slate-800">
-                        <h3 class="text-xs font-bold uppercase tracking-wider text-amber-400 mb-2">Snowflake SQL Hash Function</h3>
-                        <pre class="font-mono text-xs text-emerald-300 overflow-x-auto leading-relaxed">SELECT 
-    account_id AS customer_account_id,
-    plan_tier AS tier_plan_cd,
-    status AS account_status_cd,
-    mrr_amount AS mrr_amt,
-    SHA2(
-        CONCAT_WS('||',
-            NVL(UPPER(TRIM(plan_tier)), ''),
-            NVL(UPPER(TRIM(status)), ''),
-            NVL(mrr_amount::VARCHAR, '0.00'),
-            NVL(UPPER(TRIM(country_code)), '')
-        ),
-        256
-    ) AS _record_hash
-FROM LAKEHOUSE_BRONZE.BRZ_RAW_CUSTOMER_EVENTS;</pre>
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <!-- TAB 5: ARCHITECTURAL TENETS -->
-        <section id="view-arch" class="tab-view hidden space-y-6">
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 text-xs">
-                <div class="p-5 rounded-xl bg-slate-900 border border-slate-800">
-                    <span class="font-bold text-indigo-400 text-sm block mb-1">1. Bi-Temporal SCD2</span>
-                    <p class="text-slate-400 leading-relaxed">Preserve transaction posting time and real-world validity intervals (_valid_from_ts, _valid_to_ts).</p>
-                </div>
-                <div class="p-5 rounded-xl bg-slate-900 border border-slate-800">
-                    <span class="font-bold text-indigo-400 text-sm block mb-1">2. Absolute Currency Precision</span>
-                    <p class="text-slate-400 leading-relaxed">Floats are strictly prohibited. All financial columns use DECIMAL(18,2) or DECIMAL(24,4).</p>
-                </div>
-                <div class="p-5 rounded-xl bg-slate-900 border border-slate-800">
-                    <span class="font-bold text-indigo-400 text-sm block mb-1">3. Immutable Audit Lineage</span>
-                    <p class="text-slate-400 leading-relaxed">Embed source code, pipeline UUID, ingestion timestamp, and SHA-256 hash in every row.</p>
-                </div>
-                <div class="p-5 rounded-xl bg-slate-900 border border-slate-800">
-                    <span class="font-bold text-indigo-400 text-sm block mb-1">4. Conformed Kimball Star</span>
-                    <p class="text-slate-400 leading-relaxed">Gold tables adhere strictly to dimensional star modeling with integer surrogate keys (_sk).</p>
-                </div>
-                <div class="p-5 rounded-xl bg-slate-900 border border-slate-800">
-                    <span class="font-bold text-indigo-400 text-sm block mb-1">5. Idempotent Ingestion & CDC</span>
-                    <p class="text-slate-400 leading-relaxed">Replays must never create duplicate records or double-counted financial metrics.</p>
-                </div>
-                <div class="p-5 rounded-xl bg-slate-900 border border-slate-800">
-                    <span class="font-bold text-indigo-400 text-sm block mb-1">6. Semantic Suffix Taxonomy</span>
-                    <p class="text-slate-400 leading-relaxed">Mandatory column suffixes (_sk, _id, _amt, _cnt, _cd, _flg, _ts) for automated catalog discovery.</p>
-                </div>
-            </div>
-        </section>
-    </main>
-
-    <!-- Footer -->
-    <footer class="border-t border-slate-800 bg-slate-900/60 px-6 py-4 text-center text-xs text-slate-500">
-        Python Medallion Lakehouse Server • Running locally without npm or Node.js • Standard Library Powered
-    </footer>
-
-    <!-- Application Script -->
-    <script>
-        const PRESETS = {
-            silver_current: "SELECT customer_account_id, company_name, tier_plan_cd, mrr_amt, country_iso_cd, _valid_from_ts, _is_current_flg\\nFROM slv_ent_customer_account\\nWHERE _is_current_flg = 1;",
-            gold_star: "SELECT \\n    f.order_id,\\n    c.company_name,\\n    c.tier_plan_cd,\\n    p.product_name,\\n    f.order_quantity_cnt,\\n    f.net_sales_amt,\\n    f.gross_margin_amt\\nFROM gld_fct_order_sales f\\nJOIN gld_dim_customer c ON f.customer_sk = c.customer_sk\\nJOIN gld_dim_product p ON f.product_sk = p.product_sk;",
-            hash_diff: "SELECT \\n    order_id,\\n    customer_account_id,\\n    total_gross_amt,\\n    SHA2(CONCAT_WS('||', customer_account_id, order_status_cd, total_gross_amt), 256) AS _computed_hash\\nFROM slv_ent_order_header;",
-            bronze_raw: "SELECT payload_id, event_type_cd, account_id, plan_tier, mrr_amount, _raw_payload_json\\nFROM brz_raw_customer_events;",
-            scd2_history: "SELECT customer_account_id, _version_seq_id, tier_plan_cd, mrr_amt, _valid_from_ts, _valid_to_ts, _is_current_flg\\nFROM slv_ent_customer_account\\nORDER BY customer_account_id, _version_seq_id;"
-        };
-
-        const DDL_TEMPLATES = {
-            delta: `-- Databricks Delta Lake 3.0+ Enterprise SQL DDL
-CREATE OR REPLACE TABLE lakehouse_silver.slv_ent_customer_account (
-    customer_account_version_id VARCHAR(64) NOT NULL,
-    customer_account_id         VARCHAR(64) NOT NULL,
-    company_name                VARCHAR(255),
-    primary_email               VARCHAR(255) NOT NULL,
-    tier_plan_cd                VARCHAR(32) NOT NULL,
-    account_status_cd           VARCHAR(32) NOT NULL,
-    seat_licensed_cnt           INTEGER NOT NULL,
-    mrr_amt                     DECIMAL(18, 2) NOT NULL,
-    country_iso_cd              VARCHAR(8) NOT NULL,
-    is_enterprise_sla_flg       BOOLEAN NOT NULL,
-    _src_sys_cd                 VARCHAR(32) NOT NULL,
-    _ingest_ts                  TIMESTAMP NOT NULL,
-    _valid_from_ts              TIMESTAMP NOT NULL,
-    _valid_to_ts                TIMESTAMP NOT NULL,
-    _is_current_flg             BOOLEAN NOT NULL,
-    _record_hash                CHAR(64) NOT NULL,
-    CONSTRAINT pk_customer PRIMARY KEY (customer_account_version_id)
-)
-USING DELTA
-PARTITIONED BY (tier_plan_cd)
-TBLPROPERTIES (
-    'delta.enableChangeDataFeed' = 'true',
-    'delta.autoOptimize.optimizeWrite' = 'true'
-);`,
-            snowflake: `-- Snowflake Enterprise SQL DDL
-CREATE OR REPLACE TABLE LAKEHOUSE_SILVER.SLV_ENT_CUSTOMER_ACCOUNT (
-    CUSTOMER_ACCOUNT_VERSION_ID VARCHAR(64) NOT NULL,
-    CUSTOMER_ACCOUNT_ID         VARCHAR(64) NOT NULL,
-    COMPANY_NAME                VARCHAR(255),
-    PRIMARY_EMAIL               VARCHAR(255) NOT NULL,
-    TIER_PLAN_CD                VARCHAR(32) NOT NULL,
-    ACCOUNT_STATUS_CD           VARCHAR(32) NOT NULL,
-    SEAT_LICENSED_CNT           INTEGER NOT NULL,
-    MRR_AMT                     NUMBER(18, 2) NOT NULL,
-    COUNTRY_ISO_CD              VARCHAR(8) NOT NULL,
-    IS_ENTERPRISE_SLA_FLG       BOOLEAN NOT NULL,
-    _SRC_SYS_CD                 VARCHAR(32) NOT NULL,
-    _VALID_FROM_TS              TIMESTAMP_NTZ NOT NULL,
-    _VALID_TO_TS                TIMESTAMP_NTZ NOT NULL,
-    _IS_CURRENT_FLG             BOOLEAN NOT NULL,
-    _RECORD_HASH                CHAR(64) NOT NULL,
-    CONSTRAINT PK_CUSTOMER PRIMARY KEY (CUSTOMER_ACCOUNT_VERSION_ID)
-)
-CLUSTER BY (TIER_PLAN_CD, CUSTOMER_ACCOUNT_ID);
-ALTER TABLE LAKEHOUSE_SILVER.SLV_ENT_CUSTOMER_ACCOUNT SET DATA_RETENTION_TIME_IN_DAYS = 90;`,
-            bigquery: `-- Google BigQuery SQL DDL
-CREATE OR REPLACE TABLE \`gcp_project.lakehouse_silver.slv_ent_customer_account\` (
-    customer_account_version_id STRING NOT NULL,
-    customer_account_id         STRING NOT NULL,
-    company_name                STRING,
-    primary_email               STRING NOT NULL,
-    tier_plan_cd                STRING NOT NULL,
-    account_status_cd           STRING NOT NULL,
-    seat_licensed_cnt           INT64 NOT NULL,
-    mrr_amt                     NUMERIC NOT NULL,
-    country_iso_cd              STRING NOT NULL,
-    is_enterprise_sla_flg       BOOL NOT NULL,
-    _src_sys_cd                 STRING NOT NULL,
-    _valid_from_ts              TIMESTAMP NOT NULL,
-    _valid_to_ts                TIMESTAMP NOT NULL,
-    _is_current_flg             BOOL NOT NULL,
-    _record_hash                STRING NOT NULL
-)
-PARTITION BY DATE(_valid_from_ts)
-CLUSTER BY tier_plan_cd, customer_account_id;`
-        };
-
-        function switchTab(tab) {
-            document.querySelectorAll('.tab-view').forEach(el => el.classList.add('hidden'));
-            document.querySelectorAll('.tab-btn').forEach(el => {
-                el.classList.remove('border-indigo-500', 'text-indigo-400');
-                el.classList.add('border-transparent', 'text-slate-400');
-            });
-            document.getElementById('view-' + tab).classList.remove('hidden');
-            const btn = document.getElementById('tab-' + tab);
-            btn.classList.add('border-indigo-500', 'text-indigo-400');
-            btn.classList.remove('border-transparent', 'text-slate-400');
-
-            if (tab === 'schema') loadTables();
-            if (tab === 'ddl') showDdl('delta');
-        }
-
-        function loadTemplate(key) {
-            document.getElementById('sql-editor').value = PRESETS[key] || '';
-            runQuery();
-        }
-
-        async function runQuery() {
-            const sql = document.getElementById('sql-editor').value.trim();
-            if (!sql) return;
-
-            const runBtn = document.getElementById('run-btn');
-            const statusText = document.getElementById('status-text');
-            const execTime = document.getElementById('exec-time');
-            const resultsContainer = document.getElementById('results-container');
-            const countBadge = document.getElementById('row-count-badge');
-
-            runBtn.disabled = true;
-            statusText.innerText = "Executing in Python SQLite engine...";
-            statusText.className = "text-slate-400";
-
-            try {
-                const res = await fetch('/api/execute-sql', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ sql })
-                });
-                const data = await res.json();
-                runBtn.disabled = false;
-
-                if (!data.success) {
-                    statusText.innerText = "SQL Error: " + data.error;
-                    statusText.className = "text-red-400 font-bold";
-                    execTime.innerText = data.executionTimeMs + "ms";
-                    resultsContainer.innerHTML = '<div class="p-6 text-xs text-red-400 font-mono bg-red-950/20 border border-red-900/40 rounded m-3">✕ ' + data.error + '</div>';
-                    countBadge.innerText = '0 rows';
-                    return;
-                }
-
-                statusText.innerText = "Query completed successfully.";
-                statusText.className = "text-emerald-400 font-semibold";
-                execTime.innerText = data.executionTimeMs + "ms (Python in-memory SQLite)";
-                countBadge.innerText = data.rowCount + " rows";
-
-                if (data.rows.length === 0) {
-                    resultsContainer.innerHTML = '<div class="p-8 text-center text-xs text-slate-500">Query executed successfully. 0 rows returned. (Affected: ' + data.affectedRows + ')</div>';
-                    return;
-                }
-
-                let html = '<table class="w-full text-left text-xs border-collapse font-mono">';
-                html += '<thead><tr class="border-b border-slate-800 bg-slate-900 text-slate-400 text-[11px] sticky top-0">';
-                data.columns.forEach(col => {
-                    html += '<th class="py-2.5 px-3 whitespace-nowrap">' + col + '</th>';
-                });
-                html += '</tr></thead><tbody class="divide-y divide-slate-800/50 text-slate-300">';
-
-                data.rows.forEach(row => {
-                    html += '<tr class="hover:bg-slate-900/60">';
-                    row.forEach(cell => {
-                        const val = cell === null ? '<span class="text-slate-600">NULL</span>' : cell;
-                        html += '<td class="py-2 px-3 whitespace-nowrap">' + val + '</td>';
-                    });
-                    html += '</tr>';
-                });
-                html += '</tbody></table>';
-                resultsContainer.innerHTML = html;
-            } catch (err) {
-                runBtn.disabled = false;
-                statusText.innerText = "Network / execution error: " + err.message;
-                statusText.className = "text-red-400 font-bold";
-            }
-        }
-
-        async function loadTables() {
-            const grid = document.getElementById('tables-grid');
-            try {
-                const res = await fetch('/api/tables');
-                const data = await res.json();
-                let html = '';
-                data.tables.forEach(tbl => {
-                    const badgeClass = tbl.layer === 'bronze' 
-                        ? 'bg-amber-500/10 text-amber-400 border-amber-500/30' 
-                        : (tbl.layer === 'silver' ? 'bg-slate-700/50 text-slate-300 border-slate-600' : 'bg-yellow-500/10 text-yellow-400 border-yellow-500/30');
-                    html += '<div class="p-4 rounded-xl border border-slate-800 bg-slate-950 flex flex-col justify-between">';
-                    html += '  <div>';
-                    html += '    <div class="flex items-center justify-between mb-2">';
-                    html += '      <span class="font-mono text-xs font-bold text-white">' + tbl.name + '</span>';
-                    html += '      <span class="px-2 py-0.5 rounded text-[10px] uppercase font-bold border ' + badgeClass + '">' + tbl.layer + '</span>';
-                    html += '    </div>';
-                    html += '    <p class="text-xs text-slate-400">Current record count: <strong class="text-emerald-400 font-mono">' + tbl.rowCount + '</strong> rows</p>';
-                    html += '  </div>';
-                    html += '  <button onclick="inspectTable(\\'' + tbl.name + '\\')" class="mt-3 text-left text-[11px] text-indigo-400 hover:text-indigo-300 font-mono">Query table →</button>';
-                    html += '</div>';
-                });
-                grid.innerHTML = html;
-            } catch (err) {
-                grid.innerHTML = '<div class="p-4 text-xs text-red-400">Failed to load tables: ' + err.message + '</div>';
-            }
-        }
-
-        function inspectTable(tableName) {
-            switchTab('sql');
-            document.getElementById('sql-editor').value = 'SELECT * FROM ' + tableName + ' LIMIT 50;';
-            runQuery();
-        }
-
-        function showDdl(dialect) {
-            document.querySelectorAll('.ddl-tab-btn').forEach(btn => {
-                btn.className = 'ddl-tab-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 text-slate-400';
-            });
-            document.getElementById('btn-ddl-' + dialect).className = 'ddl-tab-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 text-white';
-            document.getElementById('ddl-output').innerText = DDL_TEMPLATES[dialect] || '';
-        }
-
-        async function resetDatabase() {
-            if (!confirm("Reset in-memory Lakehouse database to original benchmark fixtures?")) return;
-            try {
-                const res = await fetch('/api/reset-db', { method: 'POST' });
-                const data = await res.json();
-                alert(data.message || "Database reset successfully!");
-                loadTemplate('silver_current');
-            } catch (err) {
-                alert("Error resetting database: " + err.message);
-            }
-        }
-
-        // Initialize with default query on load
-        document.addEventListener('DOMContentLoaded', () => {
-            document.getElementById('sql-editor').value = PRESETS.silver_current;
-            runQuery();
-
-            // Keyboard shortcut: Ctrl+Enter or Cmd+Enter to run SQL
-            document.getElementById('sql-editor').addEventListener('keydown', (e) => {
-                if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
-                    e.preventDefault();
-                    runQuery();
-                }
-            });
-        });
-    </script>
-</body>
-</html>
-"""
-
 def register_custom_sql_functions(conn: sqlite3.Connection):
-    """Registers lakehouse SQL functions in SQLite."""
+    """Registers modern data warehouse SQL functions in SQLite."""
     def sha256_func(val):
         if val is None:
             return None
@@ -568,10 +46,9 @@ def register_custom_sql_functions(conn: sqlite3.Connection):
 register_custom_sql_functions(db_conn)
 
 def init_lakehouse_database():
-    """Seeds the in-memory SQLite database with standard Medallion tables and data."""
+    """Initializes and seeds the in-memory SQLite database with Bronze, Silver, and Gold tables."""
     cursor = db_conn.cursor()
 
-    # Drop existing if re-initializing
     cursor.executescript("""
     DROP TABLE IF EXISTS brz_raw_customer_events;
     DROP TABLE IF EXISTS slv_ent_customer_account;
@@ -580,197 +57,230 @@ def init_lakehouse_database():
     DROP TABLE IF EXISTS gld_dim_customer;
     DROP TABLE IF EXISTS gld_dim_product;
     DROP TABLE IF EXISTS gld_fct_order_sales;
-    """)
 
-    # 1. Bronze: Raw landing immutable table
-    cursor.execute("""
+    -- BRONZE LAYER: Raw, immutable, append-only event landing
     CREATE TABLE brz_raw_customer_events (
-        event_id TEXT PRIMARY KEY,
-        account_id TEXT NOT NULL,
-        company_name TEXT,
-        primary_email TEXT,
-        plan_tier TEXT,
-        status TEXT,
-        licensed_seats INTEGER,
-        mrr_amount REAL,
-        _src_sys_cd TEXT,
-        _src_file_name TEXT,
-        _ingest_ts TEXT,
-        _lakehouse_layer TEXT
+        payload_id VARCHAR(64) PRIMARY KEY,
+        event_type_cd VARCHAR(32) NOT NULL,
+        account_id VARCHAR(64) NOT NULL,
+        plan_tier VARCHAR(32) NOT NULL,
+        mrr_amount DECIMAL(18, 2) NOT NULL,
+        country_code VARCHAR(8) NOT NULL,
+        _raw_payload_json TEXT NOT NULL,
+        _src_sys_cd VARCHAR(32) NOT NULL,
+        _ingest_ts TIMESTAMP NOT NULL,
+        _kafka_partition INT NOT NULL,
+        _kafka_offset INT NOT NULL
     );
-    """)
 
-    cursor.executemany("""
-    INSERT INTO brz_raw_customer_events VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), 'BRONZE');
-    """, [
-        ('EVT-001', 'ACC-101', 'Acme Corp', 'billing@acme.com', 'STARTER', 'ACTIVE', 10, 499.00, 'KAFKA_CRM', 'crm_stream_part0.json'),
-        ('EVT-002', 'ACC-102', 'BioHealth Corp', 'ops@biohealth.org', 'GROWTH', 'ACTIVE', 45, 1850.00, 'KAFKA_CRM', 'crm_stream_part0.json'),
-        ('EVT-003', 'ACC-103', 'Omni Logistics', 'admin@omnilog.io', 'ENTERPRISE', 'ACTIVE', 120, 5200.00, 'KAFKA_CRM', 'crm_stream_part1.json'),
-        ('EVT-004', 'ACC-104', 'FinEdge Global', 'security@finedge.com', 'ENTERPRISE', 'TRIAL', 80, 4200.00, 'KAFKA_CRM', 'crm_stream_part1.json'),
-        ('EVT-005', 'ACC-101', 'Acme Corp', 'billing@acme.com', 'ENTERPRISE', 'ACTIVE', 100, 4200.00, 'KAFKA_CRM', 'crm_stream_part2.json'),
-    ])
-
-    # 2. Silver: Conformed 3NF Customer Account with Bi-Temporal SCD2
-    cursor.execute("""
+    -- SILVER LAYER: Conformed, cleaned, bi-temporal SCD Type 2 dimension
     CREATE TABLE slv_ent_customer_account (
-        customer_account_id TEXT NOT NULL,
-        company_name TEXT NOT NULL,
-        primary_email TEXT NOT NULL,
-        tier_plan_cd TEXT NOT NULL,
-        account_status_cd TEXT NOT NULL,
-        seat_licensed_cnt INTEGER,
-        mrr_amt REAL,
-        _valid_from_ts TEXT NOT NULL,
-        _valid_to_ts TEXT NOT NULL,
-        _is_current_flg INTEGER NOT NULL,
-        _record_hash TEXT NOT NULL,
-        _created_ts TEXT,
-        PRIMARY KEY (customer_account_id, _valid_from_ts)
+        customer_account_version_id VARCHAR(64) PRIMARY KEY,
+        customer_account_id VARCHAR(64) NOT NULL,
+        _version_seq_id INT NOT NULL,
+        company_name VARCHAR(255) NOT NULL,
+        primary_email VARCHAR(255) NOT NULL,
+        tier_plan_cd VARCHAR(32) NOT NULL,
+        account_status_cd VARCHAR(32) NOT NULL,
+        seat_licensed_cnt INT NOT NULL,
+        mrr_amt DECIMAL(18, 2) NOT NULL,
+        country_iso_cd VARCHAR(8) NOT NULL,
+        is_enterprise_sla_flg INT NOT NULL,
+        _src_sys_cd VARCHAR(32) NOT NULL,
+        _ingest_ts TIMESTAMP NOT NULL,
+        _valid_from_ts TIMESTAMP NOT NULL,
+        _valid_to_ts TIMESTAMP NOT NULL,
+        _is_current_flg INT NOT NULL,
+        _record_hash CHAR(64) NOT NULL,
+        _dq_score DECIMAL(5, 2) NOT NULL,
+        _etl_job_id VARCHAR(64) NOT NULL
     );
-    """)
 
-    cursor.executemany("""
-    INSERT INTO slv_ent_customer_account VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'));
-    """, [
-        ('ACC-101', 'Acme Corp', 'billing@acme.com', 'STARTER', 'ACTIVE', 10, 499.00, '2025-01-01 00:00:00', '2026-06-01 00:00:00', 0, 'a1b2c3d4e5f6001'),
-        ('ACC-101', 'Acme Corp', 'billing@acme.com', 'ENTERPRISE', 'ACTIVE', 100, 4200.00, '2026-06-01 00:00:00', '9999-12-31 23:59:59', 1, 'a1b2c3d4e5f6002'),
-        ('ACC-102', 'BioHealth Corp', 'ops@biohealth.org', 'GROWTH', 'ACTIVE', 45, 1850.00, '2025-03-15 00:00:00', '9999-12-31 23:59:59', 1, 'b2c3d4e5f6a1001'),
-        ('ACC-103', 'Omni Logistics', 'admin@omnilog.io', 'ENTERPRISE', 'ACTIVE', 120, 5200.00, '2025-05-10 00:00:00', '9999-12-31 23:59:59', 1, 'c3d4e5f6a1b2001'),
-        ('ACC-104', 'FinEdge Global', 'security@finedge.com', 'ENTERPRISE', 'TRIAL', 80, 4200.00, '2026-01-01 00:00:00', '9999-12-31 23:59:59', 1, 'd4e5f6a1b2c3001'),
-    ])
-
-    # 3. Silver: Order Headers & Order Line Items
-    cursor.execute("""
+    -- SILVER LAYER: Order Header (3NF Transaction Entity)
     CREATE TABLE slv_ent_order_header (
-        order_number_id TEXT PRIMARY KEY,
-        customer_account_id TEXT NOT NULL,
-        order_placed_ts TEXT NOT NULL,
-        order_status_cd TEXT NOT NULL,
-        currency_iso_cd TEXT NOT NULL,
-        total_gross_amt REAL,
-        _created_ts TEXT
+        order_id VARCHAR(64) PRIMARY KEY,
+        customer_account_id VARCHAR(64) NOT NULL,
+        order_date_dt DATE NOT NULL,
+        order_status_cd VARCHAR(32) NOT NULL,
+        currency_iso_cd VARCHAR(8) NOT NULL,
+        total_gross_amt DECIMAL(18, 2) NOT NULL,
+        tax_amt DECIMAL(18, 2) NOT NULL,
+        total_net_amt DECIMAL(18, 2) NOT NULL,
+        _src_sys_cd VARCHAR(32) NOT NULL,
+        _ingest_ts TIMESTAMP NOT NULL,
+        _record_hash CHAR(64) NOT NULL
     );
-    """)
 
-    cursor.executemany("""
-    INSERT INTO slv_ent_order_header VALUES (?, ?, ?, ?, 'USD', ?, datetime('now'));
-    """, [
-        ('ORD-1001', 'ACC-101', '2026-06-15 14:30:00', 'COMPLETED', 4200.00),
-        ('ORD-1002', 'ACC-102', '2026-07-01 09:15:00', 'COMPLETED', 1850.00),
-        ('ORD-1003', 'ACC-103', '2026-07-10 16:45:00', 'COMPLETED', 10400.00),
-        ('ORD-1004', 'ACC-101', '2026-08-01 11:20:00', 'COMPLETED', 4200.00),
-        ('ORD-1005', 'ACC-104', '2026-08-15 10:00:00', 'PENDING', 4200.00),
-    ])
-
-    cursor.execute("""
+    -- SILVER LAYER: Order Line Items
     CREATE TABLE slv_ent_order_line_item (
-        order_line_id TEXT PRIMARY KEY,
-        order_number_id TEXT NOT NULL,
-        product_sku_id TEXT NOT NULL,
-        ordered_qty INTEGER NOT NULL,
-        unit_price_amt REAL NOT NULL,
-        line_discount_amt REAL NOT NULL,
-        line_gross_amt REAL NOT NULL
+        order_line_item_id VARCHAR(64) PRIMARY KEY,
+        order_id VARCHAR(64) NOT NULL,
+        line_item_seq_no INT NOT NULL,
+        product_sku_cd VARCHAR(64) NOT NULL,
+        quantity_cnt INT NOT NULL,
+        unit_price_amt DECIMAL(18, 2) NOT NULL,
+        line_total_amt DECIMAL(18, 2) NOT NULL,
+        _ingest_ts TIMESTAMP NOT NULL
     );
-    """)
 
-    cursor.executemany("""
-    INSERT INTO slv_ent_order_line_item VALUES (?, ?, ?, ?, ?, ?, ?);
-    """, [
-        ('LIN-001', 'ORD-1001', 'SKU-ENT-01', 1, 4200.00, 0.00, 4200.00),
-        ('LIN-002', 'ORD-1002', 'SKU-GRW-01', 1, 1850.00, 0.00, 1850.00),
-        ('LIN-003', 'ORD-1003', 'SKU-ENT-01', 2, 4200.00, 0.00, 8400.00),
-        ('LIN-004', 'ORD-1003', 'SKU-SPT-01', 1, 2000.00, 0.00, 2000.00),
-        ('LIN-005', 'ORD-1004', 'SKU-ENT-01', 1, 4200.00, 0.00, 4200.00),
-    ])
-
-    # 4. Gold: Conformed Dimensions & Star Schema Fact
-    cursor.execute("""
+    -- GOLD LAYER: Kimball Dimensional Star - Conformed Customer Dimension
     CREATE TABLE gld_dim_customer (
-        customer_sk INTEGER PRIMARY KEY AUTOINCREMENT,
-        customer_account_id TEXT NOT NULL,
-        company_name TEXT NOT NULL,
-        tier_plan_cd TEXT NOT NULL,
-        account_status_cd TEXT NOT NULL,
-        mrr_amt REAL NOT NULL,
-        _valid_from_ts TEXT NOT NULL,
-        _valid_to_ts TEXT NOT NULL,
-        _is_current_flg INTEGER NOT NULL
+        customer_sk INT PRIMARY KEY,
+        customer_account_id VARCHAR(64) NOT NULL,
+        company_name VARCHAR(255) NOT NULL,
+        tier_plan_cd VARCHAR(32) NOT NULL,
+        country_iso_cd VARCHAR(8) NOT NULL,
+        is_enterprise_sla_flg INT NOT NULL,
+        _is_current_flg INT NOT NULL,
+        _effective_start_dt DATE NOT NULL,
+        _effective_end_dt DATE NOT NULL
     );
-    """)
 
-    cursor.executemany("""
-    INSERT INTO gld_dim_customer (customer_account_id, company_name, tier_plan_cd, account_status_cd, mrr_amt, _valid_from_ts, _valid_to_ts, _is_current_flg)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?);
-    """, [
-        ('ACC-101', 'Acme Corp', 'STARTER', 'ACTIVE', 499.00, '2025-01-01 00:00:00', '2026-06-01 00:00:00', 0),
-        ('ACC-101', 'Acme Corp', 'ENTERPRISE', 'ACTIVE', 4200.00, '2026-06-01 00:00:00', '9999-12-31 23:59:59', 1),
-        ('ACC-102', 'BioHealth Corp', 'GROWTH', 'ACTIVE', 1850.00, '2025-03-15 00:00:00', '9999-12-31 23:59:59', 1),
-        ('ACC-103', 'Omni Logistics', 'ENTERPRISE', 'ACTIVE', 5200.00, '2025-05-10 00:00:00', '9999-12-31 23:59:59', 1),
-        ('ACC-104', 'FinEdge Global', 'ENTERPRISE', 'TRIAL', 4200.00, '2026-01-01 00:00:00', '9999-12-31 23:59:59', 1),
-    ])
-
-    cursor.execute("""
+    -- GOLD LAYER: Kimball Dimensional Star - Product Dimension
     CREATE TABLE gld_dim_product (
-        product_sk INTEGER PRIMARY KEY AUTOINCREMENT,
-        product_sku_id TEXT NOT NULL,
-        product_name TEXT NOT NULL,
-        product_family_cd TEXT NOT NULL,
-        unit_list_price_amt REAL NOT NULL,
-        standard_cost_amt REAL NOT NULL,
-        _is_current_flg INTEGER NOT NULL
+        product_sk INT PRIMARY KEY,
+        product_sku_cd VARCHAR(64) NOT NULL,
+        product_name VARCHAR(255) NOT NULL,
+        product_category_cd VARCHAR(64) NOT NULL,
+        standard_unit_cost_amt DECIMAL(18, 2) NOT NULL,
+        standard_unit_price_amt DECIMAL(18, 2) NOT NULL
+    );
+
+    -- GOLD LAYER: Kimball Dimensional Star - Sales & Margin Fact Table
+    CREATE TABLE gld_fct_order_sales (
+        order_sales_fact_sk INT PRIMARY KEY,
+        order_id VARCHAR(64) NOT NULL,
+        customer_sk INT NOT NULL,
+        product_sk INT NOT NULL,
+        order_date_key INT NOT NULL,
+        order_quantity_cnt INT NOT NULL,
+        gross_sales_amt DECIMAL(18, 2) NOT NULL,
+        discount_amt DECIMAL(18, 2) NOT NULL,
+        net_sales_amt DECIMAL(18, 2) NOT NULL,
+        cost_of_goods_sold_amt DECIMAL(18, 2) NOT NULL,
+        gross_margin_amt DECIMAL(18, 2) NOT NULL,
+        _created_ts TIMESTAMP NOT NULL
     );
     """)
 
+    # Seed Bronze records
     cursor.executemany("""
-    INSERT INTO gld_dim_product (product_sku_id, product_name, product_family_cd, unit_list_price_amt, standard_cost_amt, _is_current_flg)
-    VALUES (?, ?, ?, ?, ?, 1);
+    INSERT INTO brz_raw_customer_events (
+        payload_id, event_type_cd, account_id, plan_tier, mrr_amount, country_code,
+        _raw_payload_json, _src_sys_cd, _ingest_ts, _kafka_partition, _kafka_offset
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
     """, [
-        ('SKU-ENT-01', 'Enterprise Cloud License', 'PLATFORM', 4200.00, 850.00),
-        ('SKU-GRW-01', 'Growth Tier License', 'PLATFORM', 1850.00, 380.00),
-        ('SKU-STR-01', 'Starter Tier License', 'PLATFORM', 499.00, 110.00),
-        ('SKU-SPT-01', 'Dedicated SLA Support', 'ADDON', 2000.00, 450.00),
+        ('evt_001_raw', 'ACCOUNT_CREATED', 'ACC-101', 'GROWTH', 3200.00, 'USA', '{"source": "salesforce", "region": "US-EAST", "rep": "Sarah J."}', 'SFDC_CDC', '2026-01-01 10:20:00', 0, 1024),
+        ('evt_002_raw', 'ACCOUNT_CREATED', 'ACC-102', 'GROWTH', 1850.00, 'GBR', '{"source": "stripe", "region": "EU-WEST", "plan_currency": "GBP"}', 'STRIPE_WEBHOOK', '2026-02-15 08:15:00', 1, 4096),
+        ('evt_003_raw', 'ACCOUNT_CREATED', 'ACC-103', 'ENTERPRISE', 5200.00, 'CAN', '{"source": "salesforce", "region": "CAN-CENTRAL"}', 'SFDC_CDC', '2026-03-01 14:40:00', 0, 1025),
+        ('evt_004_raw', 'TIER_UPGRADE', 'ACC-101', 'ENTERPRISE', 4200.00, 'USA', '{"source": "deal_desk", "seat_count": 75, "sla": "platinum"}', 'SFDC_CDC', '2026-06-01 09:00:00', 0, 1026),
+        ('evt_005_raw', 'ACCOUNT_CREATED', 'ACC-104', 'ENTERPRISE', 4200.00, 'DEU', '{"source": "salesforce", "region": "EU-CENTRAL"}', 'SFDC_CDC', '2026-04-10 11:30:00', 1, 4097)
     ])
 
-    cursor.execute("""
-    CREATE TABLE gld_fct_order_sales (
-        order_sales_sk INTEGER PRIMARY KEY AUTOINCREMENT,
-        order_number_id TEXT NOT NULL,
-        customer_sk INTEGER NOT NULL,
-        product_sk INTEGER NOT NULL,
-        date_sk INTEGER NOT NULL,
-        ordered_qty INTEGER NOT NULL,
-        gross_sales_amt REAL NOT NULL,
-        discount_amt REAL NOT NULL,
-        net_sales_amt REAL NOT NULL,
-        cogs_cost_amt REAL NOT NULL,
-        gross_profit_amt REAL NOT NULL,
-        _created_ts TEXT
-    );
-    """)
-
+    # Seed Silver customer accounts (Demonstrates SCD Type 2 with revision history)
     cursor.executemany("""
-    INSERT INTO gld_fct_order_sales (order_number_id, customer_sk, product_sk, date_sk, ordered_qty, gross_sales_amt, discount_amt, net_sales_amt, cogs_cost_amt, gross_profit_amt, _created_ts)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'));
+    INSERT INTO slv_ent_customer_account (
+        customer_account_version_id, customer_account_id, _version_seq_id, company_name,
+        primary_email, tier_plan_cd, account_status_cd, seat_licensed_cnt, mrr_amt,
+        country_iso_cd, is_enterprise_sla_flg, _src_sys_cd, _ingest_ts,
+        _valid_from_ts, _valid_to_ts, _is_current_flg, _record_hash, _dq_score, _etl_job_id
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
     """, [
-        ('ORD-1001', 2, 1, 20260615, 1, 4200.00, 0.00, 4200.00, 850.00, 3350.00),
-        ('ORD-1002', 3, 2, 20260701, 1, 1850.00, 0.00, 1850.00, 380.00, 1470.00),
-        ('ORD-1003', 4, 1, 20260710, 2, 8400.00, 0.00, 8400.00, 1700.00, 6700.00),
-        ('ORD-1003', 4, 4, 20260710, 1, 2000.00, 0.00, 2000.00, 450.00, 1550.00),
-        ('ORD-1004', 2, 1, 20260801, 1, 4200.00, 0.00, 4200.00, 850.00, 3350.00),
+        # ACC-101 version 1 (Closed)
+        ('ACC-101_v1', 'ACC-101', 1, 'Acme Corp', 'billing@acme.com', 'GROWTH', 'ACTIVE', 45, 3200.00, 'USA', 0, 'SFDC_CDC', '2026-01-01 10:20:00', '2026-01-01 00:00:00', '2026-05-31 23:59:59', 0, 'c8b91a74d2e8b0123456789abcdef0123456789abcdef0123456789abcdef01', 99.8, 'job_dlt_silver_001'),
+        # ACC-101 version 2 (Active Current)
+        ('ACC-101_v2', 'ACC-101', 2, 'Acme Corp', 'billing@acme.com', 'ENTERPRISE', 'ACTIVE', 75, 4200.00, 'USA', 1, 'SFDC_CDC', '2026-06-01 09:00:00', '2026-06-01 00:00:00', '9999-12-31 23:59:59', 1, 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855', 100.0, 'job_dlt_silver_004'),
+        # ACC-102 (Active Current)
+        ('ACC-102_v1', 'ACC-102', 1, 'BioHealth Corp', 'ops@biohealth.io', 'GROWTH', 'ACTIVE', 25, 1850.00, 'GBR', 0, 'STRIPE_WEBHOOK', '2026-02-15 08:15:00', '2026-02-15 00:00:00', '9999-12-31 23:59:59', 1, '4a6b2c8d1e9f0123456789abcdef0123456789abcdef0123456789abcdef02', 100.0, 'job_dlt_silver_002'),
+        # ACC-103 (Active Current)
+        ('ACC-103_v1', 'ACC-103', 1, 'Omni Logistics', 'admin@omnilog.com', 'ENTERPRISE', 'ACTIVE', 100, 5200.00, 'CAN', 1, 'SFDC_CDC', '2026-03-01 14:40:00', '2026-03-01 00:00:00', '9999-12-31 23:59:59', 1, '5b7c3d9e2f0a123456789abcdef0123456789abcdef0123456789abcdef03', 100.0, 'job_dlt_silver_003'),
+        # ACC-104 (Active Current)
+        ('ACC-104_v1', 'ACC-104', 1, 'FinEdge Global', 'tech@finedge.de', 'ENTERPRISE', 'ACTIVE', 60, 4200.00, 'DEU', 1, 'SFDC_CDC', '2026-04-10 11:30:00', '2026-04-10 00:00:00', '9999-12-31 23:59:59', 1, '6c8d4e0f3a1b23456789abcdef0123456789abcdef0123456789abcdef04', 99.5, 'job_dlt_silver_005')
+    ])
+
+    # Seed Silver order headers
+    cursor.executemany("""
+    INSERT INTO slv_ent_order_header (
+        order_id, customer_account_id, order_date_dt, order_status_cd,
+        currency_iso_cd, total_gross_amt, tax_amt, total_net_amt,
+        _src_sys_cd, _ingest_ts, _record_hash
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+    """, [
+        ('ORD-1001', 'ACC-101', '2026-06-15', 'SETTLED', 'USD', 4200.00, 0.00, 4200.00, 'BILLING_SYSTEM', '2026-06-15 12:00:00', 'hash_ord_1001'),
+        ('ORD-1002', 'ACC-102', '2026-07-01', 'SETTLED', 'USD', 1850.00, 0.00, 1850.00, 'BILLING_SYSTEM', '2026-07-01 12:00:00', 'hash_ord_1002'),
+        ('ORD-1003', 'ACC-103', '2026-07-10', 'SETTLED', 'USD', 10400.00, 0.00, 10400.00, 'BILLING_SYSTEM', '2026-07-10 12:00:00', 'hash_ord_1003'),
+        ('ORD-1004', 'ACC-101', '2026-08-01', 'SETTLED', 'USD', 4200.00, 0.00, 4200.00, 'BILLING_SYSTEM', '2026-08-01 12:00:00', 'hash_ord_1004'),
+        ('ORD-1005', 'ACC-104', '2026-08-15', 'PENDING', 'USD', 4200.00, 0.00, 4200.00, 'BILLING_SYSTEM', '2026-08-15 12:00:00', 'hash_ord_1005')
+    ])
+
+    # Seed Silver line items
+    cursor.executemany("""
+    INSERT INTO slv_ent_order_line_item (
+        order_line_item_id, order_id, line_item_seq_no, product_sku_cd,
+        quantity_cnt, unit_price_amt, line_total_amt, _ingest_ts
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+    """, [
+        ('LI-1001-1', 'ORD-1001', 1, 'SKU-ENT-PLATFORM', 1, 4200.00, 4200.00, '2026-06-15 12:00:00'),
+        ('LI-1002-1', 'ORD-1002', 1, 'SKU-GROWTH-SaaS', 1, 1850.00, 1850.00, '2026-07-01 12:00:00'),
+        ('LI-1003-1', 'ORD-1003', 1, 'SKU-ENT-PLATFORM', 2, 4200.00, 8400.00, '2026-07-10 12:00:00'),
+        ('LI-1003-2', 'ORD-1003', 2, 'SKU-PREMIUM-SUPPORT', 1, 2000.00, 2000.00, '2026-07-10 12:00:00'),
+        ('LI-1004-1', 'ORD-1004', 1, 'SKU-ENT-PLATFORM', 1, 4200.00, 4200.00, '2026-08-01 12:00:00')
+    ])
+
+    # Seed Gold Customer Dimension
+    cursor.executemany("""
+    INSERT INTO gld_dim_customer (
+        customer_sk, customer_account_id, company_name, tier_plan_cd,
+        country_iso_cd, is_enterprise_sla_flg, _is_current_flg,
+        _effective_start_dt, _effective_end_dt
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
+    """, [
+        (1, 'ACC-101', 'Acme Corp (Growth Era)', 'GROWTH', 'USA', 0, 0, '2026-01-01', '2026-05-31'),
+        (2, 'ACC-101', 'Acme Corp', 'ENTERPRISE', 'USA', 1, 1, '2026-06-01', '9999-12-31'),
+        (3, 'ACC-102', 'BioHealth Corp', 'GROWTH', 'GBR', 0, 1, '2026-02-15', '9999-12-31'),
+        (4, 'ACC-103', 'Omni Logistics', 'ENTERPRISE', 'CAN', 1, 1, '2026-03-01', '9999-12-31'),
+        (5, 'ACC-104', 'FinEdge Global', 'ENTERPRISE', 'DEU', 1, 1, '2026-04-10', '9999-12-31')
+    ])
+
+    # Seed Gold Product Dimension
+    cursor.executemany("""
+    INSERT INTO gld_dim_product (
+        product_sk, product_sku_cd, product_name, product_category_cd,
+        standard_unit_cost_amt, standard_unit_price_amt
+    ) VALUES (?, ?, ?, ?, ?, ?);
+    """, [
+        (1, 'SKU-ENT-PLATFORM', 'Enterprise Lakehouse Suite', 'CORE_PLATFORM', 850.00, 4200.00),
+        (2, 'SKU-GROWTH-SaaS', 'Growth Lakehouse Engine', 'CORE_PLATFORM', 380.00, 1850.00),
+        (3, 'SKU-ADDON-GOVERNANCE', 'Data Governance Sentinel', 'ADD_ON', 220.00, 1200.00),
+        (4, 'SKU-PREMIUM-SUPPORT', '24/7 Dedicated SRE Support', 'SERVICES', 450.00, 2000.00)
+    ])
+
+    # Seed Gold Sales Fact
+    cursor.executemany("""
+    INSERT INTO gld_fct_order_sales (
+        order_sales_fact_sk, order_id, customer_sk, product_sk, order_date_key,
+        order_quantity_cnt, gross_sales_amt, discount_amt, net_sales_amt,
+        cost_of_goods_sold_amt, gross_margin_amt, _created_ts
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'));
+    """, [
+        (1, 'ORD-1001', 2, 1, 20260615, 1, 4200.00, 0.00, 4200.00, 850.00, 3350.00),
+        (2, 'ORD-1002', 3, 2, 20260701, 1, 1850.00, 0.00, 1850.00, 380.00, 1470.00),
+        (3, 'ORD-1003', 4, 1, 20260710, 2, 8400.00, 0.00, 8400.00, 1700.00, 6700.00),
+        (4, 'ORD-1003', 4, 4, 20260710, 1, 2000.00, 0.00, 2000.00, 450.00, 1550.00),
+        (5, 'ORD-1004', 2, 1, 20260801, 1, 4200.00, 0.00, 4200.00, 850.00, 3350.00)
     ])
 
     db_conn.commit()
-    print("✓ Lakehouse SQLite Medallion tables successfully initialized.")
+    print("✓ Lakehouse SQLite Medallion tables initialized successfully.")
 
-# Initialize database on startup
+# Seed on server boot
 init_lakehouse_database()
 
-class LakehouseHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
-    """Custom HTTP handler serving the React client build and Python SQL endpoints."""
+class MedallionHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
+    """Custom HTTP handler serving pure HTML frontend and live Python SQL endpoints."""
 
     def __init__(self, *args, **kwargs):
-        super().__init__(*args, directory=DIST_DIR, **kwargs)
+        super().__init__(*args, directory=BASE_DIR, **kwargs)
 
     def do_OPTIONS(self):
         self.send_response(200)
@@ -780,21 +290,22 @@ class LakehouseHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
         self.end_headers()
 
     def do_GET(self):
-        path = self.path.split('?')[0]
+        url_path = self.path.split('?')[0]
 
-        # API: Health check
-        if path == '/api/health':
+        # API 1: Health check
+        if url_path == '/api/health':
             self.send_json_response(200, {
                 "status": "ok",
-                "app": "python-medallion-lakehouse",
+                "app": "pure-python-medallion-lakehouse",
                 "runtime": f"Python {sys.version.split()[0]}",
-                "engine": "Python sqlite3 in-memory SQL Engine",
-                "medallion_layers": ["bronze", "silver", "gold"]
+                "engine": "Python in-memory SQLite3 SQL Engine",
+                "layers": ["bronze", "silver", "gold"],
+                "activePort": PORT
             })
             return
 
-        # API: List all lakehouse tables with row counts
-        if path == '/api/tables':
+        # API 2: List Medallion Tables
+        if url_path == '/api/tables':
             try:
                 cursor = db_conn.cursor()
                 cursor.execute("""
@@ -820,53 +331,81 @@ class LakehouseHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 self.send_json_response(500, {"error": str(e)})
             return
 
-        # SPA Static File Serving
-        # If requested file exists in dist, serve it; otherwise serve dist/index.html
-        local_path = os.path.join(DIST_DIR, path.lstrip('/'))
-        if os.path.exists(local_path) and not os.path.isdir(local_path):
-            return super().do_GET()
+        # API 3: Table details and sample data
+        if url_path.startswith('/api/table/'):
+            table_name = url_path.replace('/api/table/', '').strip()
+            try:
+                cursor = db_conn.cursor()
+                cursor.execute(f"PRAGMA table_info({table_name});")
+                col_info = cursor.fetchall()
+                if not col_info:
+                    self.send_json_response(404, {"error": f"Table '{table_name}' does not exist"})
+                    return
+                
+                columns = [{"name": c[1], "type": c[2], "notNull": bool(c[3]), "pk": bool(c[5])} for c in col_info]
+                
+                cursor.execute(f"SELECT * FROM {table_name} LIMIT 25;")
+                rows = cursor.fetchall()
+                
+                self.send_json_response(200, {
+                    "table": table_name,
+                    "columns": columns,
+                    "rows": rows,
+                    "rowCount": len(rows)
+                })
+            except Exception as e:
+                self.send_json_response(500, {"error": str(e)})
+            return
 
-        # Fallback to index.html for SPA routes, or serve embedded Python-native UI
-        index_file = os.path.join(DIST_DIR, 'index.html')
-        if os.path.exists(index_file) and not 'mode=python_native' in self.path:
+        # API 4: Export Full Architecture Markdown Specification
+        if url_path == '/api/export-spec':
+            spec_md = generate_lakehouse_specification_markdown()
             self.send_response(200)
-            self.send_header('Content-type', 'text/html; charset=utf-8')
+            self.send_header('Content-Type', 'text/markdown; charset=utf-8')
+            self.send_header('Content-Disposition', 'attachment; filename="Enterprise_Medallion_Lakehouse_Standard.md"')
+            self.send_header('Access-Control-Allow-Origin', '*')
             self.end_headers()
-            with open(index_file, 'rb') as f:
-                self.wfile.write(f.read())
-        else:
-            # Standalone zero-npm Python interface
-            html_content = generate_standalone_html()
-            self.send_response(200)
-            self.send_header('Content-type', 'text/html; charset=utf-8')
-            self.end_headers()
-            self.wfile.write(html_content.encode('utf-8'))
+            self.wfile.write(spec_md.encode('utf-8'))
+            return
+
+        # Root and SPA fallback: Serve index.html
+        if url_path in ['/', '/index.html']:
+            index_path = os.path.join(BASE_DIR, 'index.html')
+            if os.path.exists(index_path):
+                self.send_response(200)
+                self.send_header('Content-Type', 'text/html; charset=utf-8')
+                self.end_headers()
+                with open(index_path, 'rb') as f:
+                    self.wfile.write(f.read())
+                return
+
+        # Fallback to standard static file serving
+        return super().do_GET()
 
     def do_POST(self):
-        path = self.path.split('?')[0]
+        url_path = self.path.split('?')[0]
 
-        # Read JSON body
         content_length = int(self.headers.get('Content-Length', 0))
         body = self.rfile.read(content_length).decode('utf-8') if content_length > 0 else '{}'
         
         try:
-            data = json.loads(body) if body else {}
+            payload = json.loads(body) if body else {}
         except json.JSONDecodeError:
-            self.send_json_response(400, {"error": "Invalid JSON in request payload"})
+            self.send_json_response(400, {"error": "Malformed JSON payload"})
             return
 
-        # API: Execute SQL in Python SQLite engine
-        if path == '/api/execute-sql':
-            sql = data.get('sql', '').strip()
+        # API 5: Execute SQL
+        if url_path == '/api/execute-sql':
+            sql = payload.get('sql', '').strip()
             if not sql:
-                self.send_json_response(400, {"error": "No SQL query provided"})
+                self.send_json_response(400, {"error": "SQL statement is required"})
                 return
 
             start_time = time.perf_counter()
             cursor = db_conn.cursor()
 
             try:
-                # Execute query (can be multi-statement)
+                # Handle multi-statement scripts
                 statements = [s.strip() for s in sql.split(';') if s.strip()]
                 last_cursor = None
                 rows = []
@@ -905,23 +444,214 @@ class LakehouseHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 })
             return
 
-        # API: Reset SQLite database to initial state
-        if path == '/api/reset-db':
+        # API 6: Reset Database
+        if url_path == '/api/reset-db':
             try:
                 init_lakehouse_database()
-                self.send_json_response(200, {"success": True, "message": "Lakehouse database reset to default schema and seed data."})
+                self.send_json_response(200, {"success": True, "message": "Lakehouse SQLite database re-seeded successfully."})
             except Exception as e:
                 self.send_json_response(500, {"error": str(e)})
             return
 
-        self.send_json_response(404, {"error": f"Endpoint {path} not found"})
+        # API 7: Simulate Upstream CDC Event & SCD2 Version Evolution
+        if url_path == '/api/scd2-simulate':
+            account_id = payload.get('account_id', 'ACC-101')
+            new_tier = payload.get('tier_plan_cd', 'ENTERPRISE_PREMIUM')
+            new_mrr = float(payload.get('mrr_amt', 6500.00))
+            new_seats = int(payload.get('seat_licensed_cnt', 120))
+            company_name = payload.get('company_name', 'Acme Corp')
+
+            cursor = db_conn.cursor()
+            try:
+                # 1. Fetch current active record
+                cursor.execute("""
+                SELECT customer_account_version_id, _version_seq_id, _record_hash, tier_plan_cd, mrr_amt, seat_licensed_cnt, _valid_from_ts
+                FROM slv_ent_customer_account
+                WHERE customer_account_id = ? AND _is_current_flg = 1;
+                """, [account_id])
+                curr = cursor.fetchone()
+
+                if not curr:
+                    self.send_json_response(404, {"error": f"Active customer record for '{account_id}' not found"})
+                    return
+
+                curr_ver_id, curr_seq, old_hash, old_tier, old_mrr, old_seats, valid_from = curr
+
+                # 2. Calculate new deterministic SHA-256 hash across business fields
+                hash_input = f"{company_name.upper()}||{new_tier.upper()}||{new_mrr:.2f}||{new_seats}||USA"
+                new_hash = hashlib.sha256(hash_input.encode('utf-8')).hexdigest()
+
+                now_ts = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
+
+                # Check if change actually occurred
+                if new_hash == old_hash:
+                    self.send_json_response(200, {
+                        "changeDetected": False,
+                        "message": "SHA-256 hash is identical. No SCD2 evolution required (Idempotent bypass).",
+                        "currentVersion": curr_ver_id,
+                        "hash": new_hash
+                    })
+                    return
+
+                # 3. Close the previous active record
+                cursor.execute("""
+                UPDATE slv_ent_customer_account
+                SET _valid_to_ts = ?, _is_current_flg = 0
+                WHERE customer_account_version_id = ?;
+                """, [now_ts, curr_ver_id])
+
+                # 4. Insert the new active record
+                new_seq = curr_seq + 1
+                new_ver_id = f"{account_id}_v{new_seq}"
+
+                cursor.execute("""
+                INSERT INTO slv_ent_customer_account (
+                    customer_account_version_id, customer_account_id, _version_seq_id,
+                    company_name, primary_email, tier_plan_cd, account_status_cd,
+                    seat_licensed_cnt, mrr_amt, country_iso_cd, is_enterprise_sla_flg,
+                    _src_sys_cd, _ingest_ts, _valid_from_ts, _valid_to_ts,
+                    _is_current_flg, _record_hash, _dq_score, _etl_job_id
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+                """, [
+                    new_ver_id, account_id, new_seq, company_name, 'billing@acme.com',
+                    new_tier, 'ACTIVE', new_seats, new_mrr, 'USA', 1, 'SFDC_CDC',
+                    now_ts, now_ts, '9999-12-31 23:59:59', 1, new_hash, 100.0,
+                    f"job_scd2_sim_{int(time.time())}"
+                ])
+
+                # Also insert raw audit event into Bronze
+                cursor.execute("""
+                INSERT INTO brz_raw_customer_events (
+                    payload_id, event_type_cd, account_id, plan_tier, mrr_amount, country_code,
+                    _raw_payload_json, _src_sys_cd, _ingest_ts, _kafka_partition, _kafka_offset
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+                """, [
+                    f"evt_sim_{int(time.time())}", 'TIER_UPGRADE_SIM', account_id, new_tier, new_mrr, 'USA',
+                    json.dumps({"seat_count": new_seats, "mrr": new_mrr, "tier": new_tier, "event": "SCD2_SIMULATION"}),
+                    'SIM_ENGINE', now_ts, 0, 9999
+                ])
+
+                db_conn.commit()
+
+                self.send_json_response(200, {
+                    "changeDetected": True,
+                    "message": f"Successfully simulated SCD2 evolution for {account_id}.",
+                    "closedVersion": {
+                        "versionId": curr_ver_id,
+                        "seq": curr_seq,
+                        "tier": old_tier,
+                        "mrr": old_mrr,
+                        "seats": old_seats,
+                        "validFrom": valid_from,
+                        "validTo": now_ts,
+                        "recordHash": old_hash
+                    },
+                    "newVersion": {
+                        "versionId": new_ver_id,
+                        "seq": new_seq,
+                        "tier": new_tier,
+                        "mrr": new_mrr,
+                        "seats": new_seats,
+                        "validFrom": now_ts,
+                        "validTo": '9999-12-31 23:59:59',
+                        "recordHash": new_hash
+                    }
+                })
+            except Exception as e:
+                self.send_json_response(500, {"error": str(e)})
+            return
+
+        self.send_json_response(404, {"error": f"Endpoint '{url_path}' not found"})
 
     def send_json_response(self, status_code: int, data: Dict[str, Any]):
         self.send_response(status_code)
-        self.send_header('Content-type', 'application/json')
+        self.send_header('Content-Type', 'application/json')
         self.send_header('Access-Control-Allow-Origin', '*')
         self.end_headers()
         self.wfile.write(json.dumps(data).encode('utf-8'))
+
+def generate_lakehouse_specification_markdown() -> str:
+    """Generates the official enterprise lakehouse architecture specification document."""
+    return f"""# Enterprise Medallion Architecture Standards & SQL Modeling Specification
+**Standard Document ID**: ARCH-SPEC-MEDALLION-2026-V1  
+**Author**: Data Architecture Governance Board  
+**Runtime Compatibility**: Databricks Delta Lake 3.0+, Snowflake, Google BigQuery, PostgreSQL/ANSI  
+
+---
+
+## 1. Executive Summary & Architectural Axioms
+The Medallion Architecture organizes Lakehouse data into three distinct, governed physical zones:
+1. **Bronze (Raw Audit Landing)**: Append-only, immutable ingestion preserving upstream fidelity.
+2. **Silver (Conformed Enterprise 3NF & Bi-Temporal SCD2)**: Cleaned, deduplicated, standardized entities enforcing strict data contracts, business validity timestamps, and deterministic SHA-256 hash diffing.
+3. **Gold (Curated Kimball Dimensional Marts)**: Conformed Star Schemas with integer surrogate keys (`_sk`), optimized for GAAP revenue reporting, financial audits, and analytical consumption.
+
+---
+
+## 2. Mandatory Suffix Taxonomy
+Every physical column name MUST strictly adhere to the following semantic suffix rules:
+
+| Suffix | Logical Concept | Mandatory SQL Type | Example |
+|---|---|---|---|
+| `_sk` | Integer Surrogate Key (Kimball Star) | `BIGINT` / `INTEGER` | `customer_sk`, `product_sk` |
+| `_id` | Natural / System Identifier | `VARCHAR(64)` / `STRING` | `customer_account_id`, `order_id` |
+| `_amt` | Exact Financial Amount | `DECIMAL(18,2)` (NEVER FLOAT) | `mrr_amt`, `gross_sales_amt` |
+| `_cnt` | Exact Integer Count | `INTEGER` / `INT64` | `seat_licensed_cnt`, `quantity_cnt` |
+| `_cd` | Normalized Code / Enum | `VARCHAR(32)` | `tier_plan_cd`, `country_iso_cd` |
+| `_flg` | Boolean Flag | `BOOLEAN` / `INT (0 or 1)` | `_is_current_flg`, `is_enterprise_sla_flg` |
+| `_dt` | Calendar Date | `DATE` | `order_date_dt`, `_effective_start_dt` |
+| `_ts` | High-Precision Timestamp | `TIMESTAMP` / `TIMESTAMP_NTZ` | `_valid_from_ts`, `_ingest_ts` |
+| `_pct` | Decimal Percentage (0.0 to 1.0) | `DECIMAL(7,4)` | `discount_pct`, `churn_probability_pct` |
+
+---
+
+## 3. The 14 Mandatory Audit Lineage Columns
+To satisfy SOX 404, GDPR Article 17, and SOC 2 Type II controls, all Silver and Gold entities MUST contain the following immutable audit envelope:
+
+1. `_src_sys_cd`: Originating system (`SFDC_CDC`, `STRIPE_WEBHOOK`, `KAFKA_TELEMETRY`).
+2. `_ingest_ts`: High-precision UTC timestamp when the record landed in Bronze.
+3. `_etl_job_id`: Continuous integration or orchestration run identifier.
+4. `_pipeline_run_id`: Unique execution UUID for idempotency tracking.
+5. `_valid_from_ts`: Bi-temporal interval start (when the record became factually true in business reality).
+6. `_valid_to_ts`: Bi-temporal interval end (`9999-12-31 23:59:59` for active records).
+7. `_is_current_flg`: Boolean flag indicating whether this row represents the active state.
+8. `_version_seq_id`: Strictly monotonic sequence integer (1, 2, 3...) per business entity.
+9. `_record_hash`: SHA-256 hash computed deterministically across all non-audit business fields.
+10. `_dq_score`: Numeric quality score (0.00 to 100.00) assigned by expectation checks.
+11. `_dq_status_cd`: Quality category (`PASSED`, `WARNING_COERCED`, `QUARANTINED`).
+12. `_gdpr_crypto_key_id`: Cryptographic key pointer for GDPR Article 17 crypto-shredding.
+13. `_is_deleted_flg`: Soft deletion tombstone flag.
+14. `_created_ts`: Database transaction posting timestamp.
+
+---
+
+## 4. Deterministic SHA-256 Change Detection Pattern
+Distributed SQL engines suffer major network shuffle bottlenecks when performing 30-column `OR` equality checks during `MERGE INTO`. Standardize on a single SHA-256 hash comparison:
+
+```sql
+-- Databricks Delta Lake / Spark SQL
+SELECT 
+    account_id AS customer_account_id,
+    plan_tier AS tier_plan_cd,
+    mrr_amount AS mrr_amt,
+    SHA2(
+        CONCAT_WS('||',
+            COALESCE(UPPER(TRIM(account_id)), ''),
+            COALESCE(UPPER(TRIM(plan_tier)), ''),
+            COALESCE(CAST(mrr_amount AS STRING), '0.00'),
+            COALESCE(UPPER(TRIM(country_code)), '')
+        ),
+        256
+    ) AS _record_hash
+FROM lakehouse_bronze.brz_raw_customer_events;
+```
+
+---
+
+## 5. Regulatory Compliance Mapping
+- **SOX 404 (Financial Internal Controls)**: Requires financial amounts to use `DECIMAL` precision and enforces an immutable audit trail from raw landing to ledger posting.
+- **GDPR Article 17 (Right to Erasure)**: Enforced via Crypto-Shredding; PII is encrypted at the column level with a per-user key (`_gdpr_crypto_key_id`). When an erasure request arrives, the key is destroyed.
+- **GAAP / ASC 606 (Revenue Recognition)**: Standardizes subscription billing schedules, gross margins, and MRR metrics using conformed dimensions and non-overlapping SCD2 validity slices.
+"""
 
 class ThreadedHTTPServer(socketserver.ThreadingMixIn, http.server.HTTPServer):
     daemon_threads = True
@@ -929,12 +659,13 @@ class ThreadedHTTPServer(socketserver.ThreadingMixIn, http.server.HTTPServer):
 
 def run():
     print(f"============================================================")
-    print(f"🚀 Python Medallion Lakehouse Server")
+    print(f"💎 Pure Python Medallion Lakehouse Server")
     print(f"• Runtime: Python {sys.version.split()[0]}")
     print(f"• In-Memory SQL Engine: SQLite 3 with Medallion Schema")
     print(f"• Serving Port: http://{HOST}:{PORT}")
+    print(f"• Architecture: 100% Python & HTML (Zero Node/npm required)")
     print(f"============================================================")
-    server = ThreadedHTTPServer((HOST, PORT), LakehouseHTTPRequestHandler)
+    server = ThreadedHTTPServer((HOST, PORT), MedallionHTTPRequestHandler)
     try:
         server.serve_forever()
     except KeyboardInterrupt:

@@ -1,18 +1,1055 @@
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Enterprise Medallion Architecture Standards & Modeling Guide</title>
-    <meta name="description" content="Python-powered enterprise Medallion lakehouse standards (Bronze, Silver, Gold), pure SQL transformation pipelines, multi-dialect SQL DDL generator, bi-temporal SCD2, and compliance frameworks." />
-    <meta property="og:title" content="Enterprise Medallion Architecture Standards & Modeling Guide" />
-    <meta property="og:description" content="Python-powered enterprise Medallion lakehouse standards (Bronze, Silver, Gold), pure SQL transformation pipelines, multi-dialect SQL DDL generator, bi-temporal SCD2, and compliance frameworks." />
-    <meta property="og:type" content="website" />
-    <meta name="twitter:card" content="summary_large_image" />
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
-  </body>
-</html>
+    <meta name="description" content="Python-powered enterprise Medallion lakehouse standards (Bronze, Silver, Gold), pure SQL transformation pipelines, multi-dialect SQL DDL generator, bi-temporal SCD2, and compliance frameworks.">
+    <meta property="og:title" content="Enterprise Medallion Architecture Standards & Modeling Guide">
+    <meta property="og:description" content="Python-powered enterprise Medallion lakehouse standards (Bronze, Silver, Gold), pure SQL transformation pipelines, multi-dialect SQL DDL generator, bi-temporal SCD2, and compliance frameworks.">
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        slate: {
+                            950: '#030712',
+                            900: '#0f172a',
+                            850: '#151f32',
+                            800: '#1e293b',
+                            700: '#334155'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { background-color: #030712; color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+        pre, code, .font-mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #0f172a; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #475569; }
+    </style>
+</head>
+<body class="min-h-screen bg-slate-950 text-slate-100 flex flex-col antialiased selection:bg-indigo-500/30 selection:text-indigo-200">
 
+    <!-- Top Navigation Header -->
+    <header class="border-b border-slate-800 bg-slate-900/90 backdrop-blur sticky top-0 z-50 px-6 py-3.5 flex flex-wrap items-center justify-between gap-4">
+        <div class="flex items-center gap-3.5">
+            <div class="h-10 w-10 rounded-xl bg-gradient-to-br from-indigo-500 to-indigo-700 flex items-center justify-center font-black text-xl text-white shadow-lg shadow-indigo-600/30 ring-1 ring-white/20">
+                💎
+            </div>
+            <div>
+                <div class="flex items-center gap-2">
+                    <h1 class="text-sm md:text-base font-bold text-white tracking-tight">Enterprise Medallion Architecture Standards</h1>
+                    <span class="px-2 py-0.5 text-[10px] font-bold rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 tracking-wide">PURE PYTHON 3</span>
+                    <span class="hidden sm:inline-block px-2 py-0.5 text-[10px] font-bold rounded-full bg-indigo-500/15 text-indigo-400 border border-indigo-500/30 tracking-wide">ZERO NPM</span>
+                </div>
+                <p class="text-xs text-slate-400">Bronze • Silver (Bi-Temporal SCD2) • Gold (Kimball Star) • Pure SQL DDL & In-Memory Engine</p>
+            </div>
+        </div>
+
+        <div class="flex items-center gap-2.5 text-xs">
+            <button onclick="resetDatabase()" id="btn-reset" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-medium border border-slate-700 transition active:scale-95">
+                <span>↻</span>
+                <span>Reset Database</span>
+            </button>
+            <a href="/api/export-spec" download class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-medium shadow-md shadow-indigo-600/20 transition active:scale-95">
+                <span>⬇</span>
+                <span>Export Spec (.md)</span>
+            </a>
+            <div class="hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-slate-400 font-mono text-[11px]">
+                <span class="h-2 w-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                <span>Port 3000 • In-Memory SQLite</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Sub-Header Tab Navigation -->
+    <nav class="border-b border-slate-800 bg-slate-900/60 px-6 flex gap-1 overflow-x-auto text-xs font-semibold scrollbar-none">
+        <button onclick="switchTab('arch')" id="tab-arch" class="tab-btn px-4 py-3 border-b-2 border-indigo-500 text-indigo-400 flex items-center gap-2 whitespace-nowrap transition">
+            <span>📐</span> Architecture Blueprint
+        </button>
+        <button onclick="switchTab('sql')" id="tab-sql" class="tab-btn px-4 py-3 border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center gap-2 whitespace-nowrap transition">
+            <span>⚡</span> Live SQL Runner
+        </button>
+        <button onclick="switchTab('scd2')" id="tab-scd2" class="tab-btn px-4 py-3 border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center gap-2 whitespace-nowrap transition">
+            <span>⏳</span> Bi-Temporal SCD2 Simulator
+        </button>
+        <button onclick="switchTab('schema')" id="tab-schema" class="tab-btn px-4 py-3 border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center gap-2 whitespace-nowrap transition">
+            <span>🏛️</span> Medallion Table Dictionary
+        </button>
+        <button onclick="switchTab('ddl')" id="tab-ddl" class="tab-btn px-4 py-3 border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center gap-2 whitespace-nowrap transition">
+            <span>📜</span> Multi-Dialect SQL DDL
+        </button>
+        <button onclick="switchTab('compliance')" id="tab-compliance" class="tab-btn px-4 py-3 border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center gap-2 whitespace-nowrap transition">
+            <span>🛡️</span> Compliance & Governance
+        </button>
+    </nav>
+
+    <!-- Main Container -->
+    <main class="flex-1 p-6 max-w-7xl mx-auto w-full space-y-6">
+
+        <!-- ================================================================= -->
+        <!-- TAB 1: ARCHITECTURE BLUEPRINT -->
+        <!-- ================================================================= -->
+        <section id="view-arch" class="tab-view space-y-6">
+            <!-- 3-Tier Medallion Pipeline Flow Card -->
+            <div class="rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-xl">
+                <div class="mb-6">
+                    <h2 class="text-base font-bold text-white flex items-center gap-2">
+                        <span>Enterprise Lakehouse 3-Tier Physical Architecture</span>
+                    </h2>
+                    <p class="text-xs text-slate-400 mt-1">
+                        Governed progression from raw append-only ingestion to 3NF/SCD2 conformed integration, terminating in high-performance Kimball Star marts.
+                    </p>
+                </div>
+
+                <!-- Visual 3 Columns Flow -->
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-5 relative">
+                    <!-- BRONZE -->
+                    <div class="rounded-xl border border-amber-500/30 bg-gradient-to-b from-amber-950/20 to-slate-950 p-5 flex flex-col justify-between relative overflow-hidden">
+                        <div class="absolute top-0 right-0 px-3 py-1 bg-amber-500/15 border-b border-l border-amber-500/30 text-[10px] font-mono font-bold text-amber-400 rounded-bl-lg">
+                            TIER 1 • RAW AUDIT
+                        </div>
+                        <div>
+                            <div class="flex items-center gap-2.5 mb-3">
+                                <span class="text-2xl">🥉</span>
+                                <h3 class="text-sm font-bold text-amber-400 uppercase tracking-wider">Bronze Layer</h3>
+                            </div>
+                            <p class="text-xs text-slate-300 mb-4 leading-relaxed">
+                                Raw, immutable, append-only landing. Preserves source fidelity without schema mutation, enabling replayability and lineage back to source systems.
+                            </p>
+                            <div class="space-y-2 text-[11px] font-mono">
+                                <div class="p-2 rounded bg-slate-900/80 border border-slate-800 text-slate-300 flex items-center justify-between">
+                                    <span>brz_raw_customer_events</span>
+                                    <span class="text-amber-400 font-bold">Raw JSON</span>
+                                </div>
+                                <div class="p-2 rounded bg-slate-900/80 border border-slate-800 text-slate-300 flex items-center justify-between">
+                                    <span>Kafka Offset & Partition</span>
+                                    <span class="text-slate-500">Telemetry</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mt-4 pt-4 border-t border-slate-800 text-[11px] text-slate-400">
+                            <strong class="text-slate-200">Rule:</strong> No business transformations, zero updates, zero deletes.
+                        </div>
+                    </div>
+
+                    <!-- SILVER -->
+                    <div class="rounded-xl border border-slate-700 bg-gradient-to-b from-slate-800/40 to-slate-950 p-5 flex flex-col justify-between relative overflow-hidden">
+                        <div class="absolute top-0 right-0 px-3 py-1 bg-slate-700/30 border-b border-l border-slate-600 text-[10px] font-mono font-bold text-slate-300 rounded-bl-lg">
+                            TIER 2 • 3NF & SCD2
+                        </div>
+                        <div>
+                            <div class="flex items-center gap-2.5 mb-3">
+                                <span class="text-2xl">🥈</span>
+                                <h3 class="text-sm font-bold text-slate-200 uppercase tracking-wider">Silver Layer</h3>
+                            </div>
+                            <p class="text-xs text-slate-300 mb-4 leading-relaxed">
+                                Cleaned, deduplicated, standardized relational entities. Implements Bi-Temporal SCD Type 2 with deterministic SHA-256 hash diffing.
+                            </p>
+                            <div class="space-y-2 text-[11px] font-mono">
+                                <div class="p-2 rounded bg-slate-900/80 border border-slate-800 text-slate-300 flex items-center justify-between">
+                                    <span>slv_ent_customer_account</span>
+                                    <span class="text-indigo-400 font-bold">SCD Type 2</span>
+                                </div>
+                                <div class="p-2 rounded bg-slate-900/80 border border-slate-800 text-slate-300 flex items-center justify-between">
+                                    <span>slv_ent_order_header</span>
+                                    <span class="text-emerald-400 font-bold">3NF Header</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mt-4 pt-4 border-t border-slate-800 text-[11px] text-slate-400">
+                            <strong class="text-slate-200">Rule:</strong> Strict DQ validation gates, SHA-256 hash diffing, 14 audit columns.
+                        </div>
+                    </div>
+
+                    <!-- GOLD -->
+                    <div class="rounded-xl border border-yellow-500/30 bg-gradient-to-b from-yellow-950/20 to-slate-950 p-5 flex flex-col justify-between relative overflow-hidden">
+                        <div class="absolute top-0 right-0 px-3 py-1 bg-yellow-500/15 border-b border-l border-yellow-500/30 text-[10px] font-mono font-bold text-yellow-400 rounded-bl-lg">
+                            TIER 3 • KIMBALL STAR
+                        </div>
+                        <div>
+                            <div class="flex items-center gap-2.5 mb-3">
+                                <span class="text-2xl">🥇</span>
+                                <h3 class="text-sm font-bold text-yellow-400 uppercase tracking-wider">Gold Layer</h3>
+                            </div>
+                            <p class="text-xs text-slate-300 mb-4 leading-relaxed">
+                                Conformed dimensional star schemas with integer surrogate keys (`_sk`), pre-aggregated financial metrics, and GAAP ARR/MRR marts.
+                            </p>
+                            <div class="space-y-2 text-[11px] font-mono">
+                                <div class="p-2 rounded bg-slate-900/80 border border-slate-800 text-slate-300 flex items-center justify-between">
+                                    <span>gld_dim_customer (_sk)</span>
+                                    <span class="text-yellow-400 font-bold">Conformed Dim</span>
+                                </div>
+                                <div class="p-2 rounded bg-slate-900/80 border border-slate-800 text-slate-300 flex items-center justify-between">
+                                    <span>gld_fct_order_sales</span>
+                                    <span class="text-emerald-400 font-bold">Fact Table</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mt-4 pt-4 border-t border-slate-800 text-[11px] text-slate-400">
+                            <strong class="text-slate-200">Rule:</strong> Sub-second query SLA, GAAP financial reconciliation, executive BI.
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 6 Core Architectural Axioms Grid -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div class="rounded-xl border border-slate-800 bg-slate-900 p-5">
+                    <div class="flex items-center gap-2 mb-2 text-indigo-400">
+                        <span class="text-lg">⏳</span>
+                        <h4 class="text-xs font-bold uppercase tracking-wider">1. Bi-Temporal SCD2</h4>
+                    </div>
+                    <p class="text-xs text-slate-300 leading-relaxed">
+                        Preserves transaction posting time (<code class="text-indigo-300">_ingest_ts</code>) and business validity reality (<code class="text-emerald-300">_valid_from_ts</code>, <code class="text-emerald-300">_valid_to_ts</code>) with zero destructive overwrites.
+                    </p>
+                </div>
+
+                <div class="rounded-xl border border-slate-800 bg-slate-900 p-5">
+                    <div class="flex items-center gap-2 mb-2 text-emerald-400">
+                        <span class="text-lg">💵</span>
+                        <h4 class="text-xs font-bold uppercase tracking-wider">2. Absolute Currency Precision</h4>
+                    </div>
+                    <p class="text-xs text-slate-300 leading-relaxed">
+                        Floating-point IEEE-754 numbers (<code class="text-red-400">FLOAT</code>, <code class="text-red-400">DOUBLE</code>) are strictly prohibited. All financial columns mandate <code class="text-emerald-300">DECIMAL(18,2)</code> to pass SOX audits.
+                    </p>
+                </div>
+
+                <div class="rounded-xl border border-slate-800 bg-slate-900 p-5">
+                    <div class="flex items-center gap-2 mb-2 text-amber-400">
+                        <span class="text-lg">🔐</span>
+                        <h4 class="text-xs font-bold uppercase tracking-wider">3. Deterministic SHA-256 Diff</h4>
+                    </div>
+                    <p class="text-xs text-slate-300 leading-relaxed">
+                        Replaces expensive 30-column SQL <code class="text-slate-400">OR</code> equality joins during <code class="text-indigo-300">MERGE INTO</code> with a single 64-character SHA-256 payload hash comparison.
+                    </p>
+                </div>
+
+                <div class="rounded-xl border border-slate-800 bg-slate-900 p-5">
+                    <div class="flex items-center gap-2 mb-2 text-yellow-400">
+                        <span class="text-lg">⭐</span>
+                        <h4 class="text-xs font-bold uppercase tracking-wider">4. Conformed Kimball Star</h4>
+                    </div>
+                    <p class="text-xs text-slate-300 leading-relaxed">
+                        Gold fact tables never join on natural keys. They join strictly on monotonic integer surrogate keys (<code class="text-yellow-300">customer_sk</code>, <code class="text-yellow-300">product_sk</code>) for columnar performance.
+                    </p>
+                </div>
+
+                <div class="rounded-xl border border-slate-800 bg-slate-900 p-5">
+                    <div class="flex items-center gap-2 mb-2 text-cyan-400">
+                        <span class="text-lg">🏷️</span>
+                        <h4 class="text-xs font-bold uppercase tracking-wider">5. Semantic Suffix Taxonomy</h4>
+                    </div>
+                    <p class="text-xs text-slate-300 leading-relaxed">
+                        Strict column suffix conventions (<code class="text-cyan-300">_sk</code>, <code class="text-cyan-300">_id</code>, <code class="text-cyan-300">_amt</code>, <code class="text-cyan-300">_cnt</code>, <code class="text-cyan-300">_cd</code>, <code class="text-cyan-300">_flg</code>, <code class="text-cyan-300">_dt</code>, <code class="text-cyan-300">_ts</code>) enable automated governance catalogs.
+                    </p>
+                </div>
+
+                <div class="rounded-xl border border-slate-800 bg-slate-900 p-5">
+                    <div class="flex items-center gap-2 mb-2 text-purple-400">
+                        <span class="text-lg">🛡️</span>
+                        <h4 class="text-xs font-bold uppercase tracking-wider">6. 14 Mandatory Audit Fields</h4>
+                    </div>
+                    <p class="text-xs text-slate-300 leading-relaxed">
+                        Every Silver and Gold table embeds standard audit lineage columns capturing source systems, ingestion timestamps, pipeline UUIDs, and DQ scores.
+                    </p>
+                </div>
+            </div>
+        </section>
+
+        <!-- ================================================================= -->
+        <!-- TAB 2: LIVE SQL RUNNER -->
+        <!-- ================================================================= -->
+        <section id="view-sql" class="tab-view hidden space-y-6">
+            <div class="rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-xl">
+                <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
+                    <div>
+                        <h2 class="text-base font-bold text-white flex items-center gap-2">
+                            <span>Interactive SQL Lakehouse Runner</span>
+                            <span class="px-2 py-0.5 rounded text-[10px] bg-indigo-500/20 text-indigo-300 font-mono">SQLite In-Memory</span>
+                        </h2>
+                        <p class="text-xs text-slate-400 mt-1">
+                            Execute standard SQL queries against pre-seeded Bronze, Silver, and Gold tables with custom registered functions (<code class="text-emerald-300">SHA256</code>, <code class="text-emerald-300">SHA2</code>, <code class="text-emerald-300">CONCAT_WS</code>).
+                        </p>
+                    </div>
+                    <button onclick="runQuery()" id="run-btn" class="inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 px-6 py-2.5 text-xs font-bold text-white shadow-lg shadow-indigo-600/30 transition active:scale-95">
+                        <span>▶</span>
+                        <span>Run SQL (Ctrl+Enter)</span>
+                    </button>
+                </div>
+
+                <!-- Query Template Buttons -->
+                <div class="mb-3 flex flex-wrap gap-2 items-center text-xs">
+                    <span class="text-slate-500 font-bold uppercase text-[10px] tracking-wider">Presets:</span>
+                    <button onclick="loadTemplate('silver_current')" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 font-mono text-xs border border-slate-700 transition">
+                        Active Accounts (SCD2 Current)
+                    </button>
+                    <button onclick="loadTemplate('gold_star')" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 font-mono text-xs border border-slate-700 transition">
+                        Kimball Star Margins Join
+                    </button>
+                    <button onclick="loadTemplate('hash_diff')" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 font-mono text-xs border border-slate-700 transition">
+                        SHA-256 Hash Calculation
+                    </button>
+                    <button onclick="loadTemplate('scd2_history')" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 font-mono text-xs border border-slate-700 transition">
+                        SCD2 Account History
+                    </button>
+                    <button onclick="loadTemplate('tier_margins')" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 font-mono text-xs border border-slate-700 transition">
+                        GAAP ARR & Margin Aggregation
+                    </button>
+                    <button onclick="loadTemplate('bronze_raw')" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 font-mono text-xs border border-slate-700 transition">
+                        Bronze Raw Audit Stream
+                    </button>
+                </div>
+
+                <!-- Textarea Editor -->
+                <div class="relative rounded-xl border border-slate-800 bg-slate-950 overflow-hidden shadow-inner focus-within:ring-2 focus-within:ring-indigo-500/50">
+                    <textarea id="sql-editor" rows="7" class="w-full bg-transparent p-4 font-mono text-xs text-emerald-300 focus:outline-none resize-y selection:bg-indigo-500/30" placeholder="Enter standard SQL statement..."></textarea>
+                </div>
+
+                <!-- Status Banner -->
+                <div class="mt-3 flex items-center justify-between text-xs text-slate-400 font-mono">
+                    <span id="status-text" class="text-slate-400">Ready. Select a preset or type SQL and click Run.</span>
+                    <span id="exec-time" class="text-slate-500 font-semibold"></span>
+                </div>
+            </div>
+
+            <!-- Query Results Table Card -->
+            <div class="rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-xl overflow-hidden">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="flex items-center gap-3">
+                        <h3 class="text-sm font-bold text-white">Execution Output</h3>
+                        <span id="row-count-badge" class="px-2.5 py-0.5 rounded-full text-[11px] font-mono bg-slate-800 text-slate-300 border border-slate-700">0 rows</span>
+                    </div>
+                    <button onclick="copyResultsAsCsv()" id="btn-copy-csv" class="text-xs text-slate-400 hover:text-white font-mono flex items-center gap-1 transition">
+                        <span>📋</span> Copy CSV
+                    </button>
+                </div>
+
+                <div id="results-container" class="overflow-x-auto max-h-[480px] rounded-xl border border-slate-800 bg-slate-950">
+                    <div class="p-12 text-center text-xs text-slate-500 font-mono">
+                        No query executed yet. Press "Run SQL" to view results.
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ================================================================= -->
+        <!-- TAB 3: BI-TEMPORAL SCD2 SIMULATOR -->
+        <!-- ================================================================= -->
+        <section id="view-scd2" class="tab-view hidden space-y-6">
+            <div class="rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-xl">
+                <div class="mb-6">
+                    <h2 class="text-base font-bold text-white flex items-center gap-2">
+                        <span>Bi-Temporal Slowly Changing Dimension (SCD Type 2) Live Simulator</span>
+                    </h2>
+                    <p class="text-xs text-slate-400 mt-1">
+                        Simulate an upstream change event (e.g. account tier upgrade, pricing expansion). The Python engine computes the deterministic SHA-256 hash, expires the active record (<code class="text-indigo-300">_valid_to_ts = NOW()</code>, <code class="text-indigo-300">_is_current_flg = 0</code>), and appends the new version.
+                    </p>
+                </div>
+
+                <!-- Simulation Form -->
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4 p-5 rounded-xl border border-slate-800 bg-slate-950 mb-6">
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-400 uppercase mb-1.5 font-mono">Target Account</label>
+                        <select id="sim-account" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500">
+                            <option value="ACC-101">ACC-101 (Acme Corp)</option>
+                            <option value="ACC-102">ACC-102 (BioHealth Corp)</option>
+                            <option value="ACC-103">ACC-103 (Omni Logistics)</option>
+                            <option value="ACC-104">ACC-104 (FinEdge Global)</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-400 uppercase mb-1.5 font-mono">New Plan Tier</label>
+                        <select id="sim-tier" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500">
+                            <option value="ENTERPRISE_PREMIUM">ENTERPRISE_PREMIUM</option>
+                            <option value="ENTERPRISE_PLUS">ENTERPRISE_PLUS</option>
+                            <option value="ENTERPRISE">ENTERPRISE</option>
+                            <option value="GROWTH">GROWTH</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-400 uppercase mb-1.5 font-mono">New MRR Amount ($)</label>
+                        <input type="number" id="sim-mrr" value="6500.00" step="100.00" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500 font-mono">
+                    </div>
+
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-400 uppercase mb-1.5 font-mono">Licensed Seats</label>
+                        <input type="number" id="sim-seats" value="120" step="5" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500 font-mono">
+                    </div>
+                </div>
+
+                <div class="flex justify-end">
+                    <button onclick="simulateScd2()" id="btn-sim" class="inline-flex items-center gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 px-6 py-2.5 text-xs font-bold text-white shadow-lg shadow-emerald-600/30 transition active:scale-95">
+                        <span>⚡</span>
+                        <span>Trigger Upstream CDC Event & Simulate SCD2</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Simulation Result Output -->
+            <div id="sim-result-box" class="hidden rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-xl space-y-6">
+                <div class="flex items-center justify-between">
+                    <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                        <span>SCD2 Evolution Outcome</span>
+                        <span id="sim-badge" class="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider"></span>
+                    </h3>
+                    <button onclick="viewAccountInSql()" class="text-xs text-indigo-400 hover:text-indigo-300 font-mono">Query Version History in SQL →</button>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                    <!-- Closed Version Card -->
+                    <div class="rounded-xl border border-red-900/40 bg-red-950/10 p-5 space-y-3">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-bold text-red-400 uppercase font-mono">Closed Previous Version</span>
+                            <span class="px-2 py-0.5 rounded text-[10px] bg-red-900/40 text-red-300 font-mono">_is_current_flg = 0</span>
+                        </div>
+                        <div id="sim-closed-details" class="text-xs space-y-1.5 font-mono text-slate-300"></div>
+                    </div>
+
+                    <!-- New Version Card -->
+                    <div class="rounded-xl border border-emerald-500/40 bg-emerald-950/10 p-5 space-y-3">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-bold text-emerald-400 uppercase font-mono">Newly Inserted Version</span>
+                            <span class="px-2 py-0.5 rounded text-[10px] bg-emerald-900/40 text-emerald-300 font-mono">_is_current_flg = 1</span>
+                        </div>
+                        <div id="sim-new-details" class="text-xs space-y-1.5 font-mono text-slate-300"></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ================================================================= -->
+        <!-- TAB 4: MEDALLION TABLE DICTIONARY -->
+        <!-- ================================================================= -->
+        <section id="view-schema" class="tab-view hidden space-y-6">
+            <!-- Active Tables Grid -->
+            <div class="rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-xl">
+                <div class="mb-4">
+                    <h2 class="text-base font-bold text-white">Medallion Table Registry (Live In-Memory Counts)</h2>
+                    <p class="text-xs text-slate-400 mt-1">Live inspection of all physical tables hosted by the Python Lakehouse Engine.</p>
+                </div>
+
+                <div id="tables-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <!-- Loaded dynamically via loadTables() -->
+                    <div class="p-5 rounded-xl border border-slate-800 bg-slate-950 animate-pulse">
+                        <div class="h-4 bg-slate-800 rounded w-2/3 mb-2"></div>
+                        <div class="h-3 bg-slate-800 rounded w-1/3"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Table Inspector Modal / Section -->
+            <div id="table-inspector" class="hidden rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-xl space-y-4">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h3 id="inspect-title" class="text-sm font-bold text-white font-mono"></h3>
+                        <p class="text-xs text-slate-400">Schema definition and active sample records.</p>
+                    </div>
+                    <button onclick="document.getElementById('table-inspector').classList.add('hidden')" class="text-xs text-slate-400 hover:text-white font-mono">✕ Close</button>
+                </div>
+                <div id="inspect-content" class="overflow-x-auto max-h-96 rounded-xl border border-slate-800 bg-slate-950"></div>
+            </div>
+
+            <!-- 14 Mandatory Audit Columns Standards Reference -->
+            <div class="rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-xl">
+                <h3 class="text-sm font-bold text-white mb-2">The 14 Mandatory Enterprise Audit Lineage Columns</h3>
+                <p class="text-xs text-slate-400 mb-4">Required by Enterprise Governance across all Silver and Gold entities.</p>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-xs border-collapse font-mono">
+                        <thead>
+                            <tr class="border-b border-slate-800 bg-slate-950/80 text-slate-400 text-[11px]">
+                                <th class="py-2.5 px-3">Column Name</th>
+                                <th class="py-2.5 px-3">Data Type</th>
+                                <th class="py-2.5 px-3">Category</th>
+                                <th class="py-2.5 px-3">Axiom & Purpose</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-800/60 text-slate-300 text-[11px]">
+                            <tr><td class="py-2 px-3 text-indigo-400 font-bold">_src_sys_cd</td><td class="py-2 px-3 text-slate-400">VARCHAR(32)</td><td class="py-2 px-3 text-amber-400">Source Lineage</td><td class="py-2 px-3 text-slate-400">Originating system (e.g. SFDC_CDC, STRIPE, KAFKA).</td></tr>
+                            <tr><td class="py-2 px-3 text-indigo-400 font-bold">_ingest_ts</td><td class="py-2 px-3 text-slate-400">TIMESTAMP</td><td class="py-2 px-3 text-amber-400">Lineage</td><td class="py-2 px-3 text-slate-400">Bronze ingestion timestamp UTC.</td></tr>
+                            <tr><td class="py-2 px-3 text-indigo-400 font-bold">_etl_job_id</td><td class="py-2 px-3 text-slate-400">VARCHAR(64)</td><td class="py-2 px-3 text-indigo-400">Execution</td><td class="py-2 px-3 text-slate-400">Pipeline execution UUID / run ID.</td></tr>
+                            <tr><td class="py-2 px-3 text-indigo-400 font-bold">_pipeline_run_id</td><td class="py-2 px-3 text-slate-400">VARCHAR(64)</td><td class="py-2 px-3 text-indigo-400">Execution</td><td class="py-2 px-3 text-slate-400">Orchestrator dag run identifier for replay idempotency.</td></tr>
+                            <tr><td class="py-2 px-3 text-indigo-400 font-bold">_valid_from_ts</td><td class="py-2 px-3 text-slate-400">TIMESTAMP</td><td class="py-2 px-3 text-emerald-400">SCD Type 2</td><td class="py-2 px-3 text-slate-400">Start of business reality validity interval.</td></tr>
+                            <tr><td class="py-2 px-3 text-indigo-400 font-bold">_valid_to_ts</td><td class="py-2 px-3 text-slate-400">TIMESTAMP</td><td class="py-2 px-3 text-emerald-400">SCD Type 2</td><td class="py-2 px-3 text-slate-400">End of business validity ('9999-12-31' for active records).</td></tr>
+                            <tr><td class="py-2 px-3 text-indigo-400 font-bold">_is_current_flg</td><td class="py-2 px-3 text-slate-400">INT / BOOL</td><td class="py-2 px-3 text-emerald-400">SCD Type 2</td><td class="py-2 px-3 text-slate-400">1 if row is the active current version, 0 if historic.</td></tr>
+                            <tr><td class="py-2 px-3 text-indigo-400 font-bold">_version_seq_id</td><td class="py-2 px-3 text-slate-400">INT</td><td class="py-2 px-3 text-emerald-400">SCD Type 2</td><td class="py-2 px-3 text-slate-400">Monotonically increasing version index (1, 2, 3...).</td></tr>
+                            <tr><td class="py-2 px-3 text-indigo-400 font-bold">_record_hash</td><td class="py-2 px-3 text-slate-400">CHAR(64)</td><td class="py-2 px-3 text-pink-400">CDC / Diff</td><td class="py-2 px-3 text-slate-400">SHA-256 payload hash across non-audit business fields.</td></tr>
+                            <tr><td class="py-2 px-3 text-indigo-400 font-bold">_dq_score</td><td class="py-2 px-3 text-slate-400">DECIMAL(5,2)</td><td class="py-2 px-3 text-cyan-400">Governance</td><td class="py-2 px-3 text-slate-400">Data quality score calculated by expectations (0.0 - 100.0).</td></tr>
+                            <tr><td class="py-2 px-3 text-indigo-400 font-bold">_dq_status_cd</td><td class="py-2 px-3 text-slate-400">VARCHAR(32)</td><td class="py-2 px-3 text-cyan-400">Governance</td><td class="py-2 px-3 text-slate-400">PASSED, WARNING_COERCED, or QUARANTINED.</td></tr>
+                            <tr><td class="py-2 px-3 text-indigo-400 font-bold">_gdpr_crypto_key_id</td><td class="py-2 px-3 text-slate-400">VARCHAR(64)</td><td class="py-2 px-3 text-purple-400">Privacy</td><td class="py-2 px-3 text-slate-400">Encryption key identifier for GDPR Art. 17 crypto-shredding.</td></tr>
+                            <tr><td class="py-2 px-3 text-indigo-400 font-bold">_is_deleted_flg</td><td class="py-2 px-3 text-slate-400">INT / BOOL</td><td class="py-2 px-3 text-red-400">Tombstone</td><td class="py-2 px-3 text-slate-400">Soft deletion flag for upstream CRM/ERP record removals.</td></tr>
+                            <tr><td class="py-2 px-3 text-indigo-400 font-bold">_created_ts</td><td class="py-2 px-3 text-slate-400">TIMESTAMP</td><td class="py-2 px-3 text-slate-400">System</td><td class="py-2 px-3 text-slate-400">Database transaction posting timestamp UTC.</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- ================================================================= -->
+        <!-- TAB 5: MULTI-DIALECT SQL DDL -->
+        <!-- ================================================================= -->
+        <section id="view-ddl" class="tab-view hidden space-y-6">
+            <div class="rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-xl">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+                    <div>
+                        <h2 class="text-base font-bold text-white">Production Multi-Dialect SQL DDL Generator</h2>
+                        <p class="text-xs text-slate-400 mt-1">Enterprise SQL DDL specifications optimized for clustering, partitioning, and change-data-feed.</p>
+                    </div>
+                    <div class="flex flex-wrap gap-2">
+                        <button onclick="showDdl('delta')" id="btn-ddl-delta" class="ddl-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 text-white transition">Databricks Delta</button>
+                        <button onclick="showDdl('snowflake')" id="btn-ddl-snowflake" class="ddl-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 text-slate-400 hover:text-white transition">Snowflake</button>
+                        <button onclick="showDdl('bigquery')" id="btn-ddl-bigquery" class="ddl-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 text-slate-400 hover:text-white transition">Google BigQuery</button>
+                        <button onclick="showDdl('ansi')" id="btn-ddl-ansi" class="ddl-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 text-slate-400 hover:text-white transition">PostgreSQL / ANSI</button>
+                        <button onclick="showDdl('dbt')" id="btn-ddl-dbt" class="ddl-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 text-slate-400 hover:text-white transition">dbt Incremental</button>
+                    </div>
+                </div>
+
+                <div class="relative">
+                    <button onclick="copyDdl()" id="btn-copy-ddl" class="absolute top-3 right-3 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-mono text-xs border border-slate-700 transition">
+                        📋 Copy DDL
+                    </button>
+                    <pre id="ddl-output" class="rounded-xl bg-slate-950 p-5 font-mono text-xs text-emerald-300 overflow-x-auto border border-slate-800 shadow-inner max-h-[540px] leading-relaxed"></pre>
+                </div>
+            </div>
+        </section>
+
+        <!-- ================================================================= -->
+        <!-- TAB 6: COMPLIANCE & GOVERNANCE -->
+        <!-- ================================================================= -->
+        <section id="view-compliance" class="tab-view hidden space-y-6">
+            <div class="rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-xl">
+                <h2 class="text-base font-bold text-white mb-2">Regulatory Crosswalk & Lakehouse Governance Matrix</h2>
+                <p class="text-xs text-slate-400 mb-6">How Medallion architecture patterns enforce strict enterprise compliance mandates.</p>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    <div class="p-5 rounded-xl border border-slate-800 bg-slate-950 space-y-2.5">
+                        <div class="flex items-center justify-between">
+                            <span class="font-bold text-white text-sm">SOX 404 (Financial Internal Controls)</span>
+                            <span class="px-2 py-0.5 rounded text-[10px] bg-indigo-500/20 text-indigo-400 font-bold">SOX</span>
+                        </div>
+                        <p class="text-xs text-slate-300 leading-relaxed">
+                            Requires mathematical reproducibility and full auditability of all financial statements. 
+                            Enforced by banning floating-point types (<code class="text-emerald-400">DECIMAL(18,2)</code> mandatory) and preserving the complete lineage envelope from Bronze ingest to Gold general ledger marts.
+                        </p>
+                    </div>
+
+                    <div class="p-5 rounded-xl border border-slate-800 bg-slate-950 space-y-2.5">
+                        <div class="flex items-center justify-between">
+                            <span class="font-bold text-white text-sm">GDPR Article 17 (Right to Erasure)</span>
+                            <span class="px-2 py-0.5 rounded text-[10px] bg-purple-500/20 text-purple-400 font-bold">GDPR</span>
+                        </div>
+                        <p class="text-xs text-slate-300 leading-relaxed">
+                            In append-only Parquet/Delta architectures, deleting individual user rows from hundreds of historical partitions is computationally prohibitive.
+                            Enforced via <strong>Crypto-Shredding</strong>: PII columns are encrypted with a per-customer key (<code class="text-purple-400">_gdpr_crypto_key_id</code>). On erasure, deleting the encryption key renders historical PII permanently unrecoverable.
+                        </p>
+                    </div>
+
+                    <div class="p-5 rounded-xl border border-slate-800 bg-slate-950 space-y-2.5">
+                        <div class="flex items-center justify-between">
+                            <span class="font-bold text-white text-sm">SOC 2 Type II (Security & Availability)</span>
+                            <span class="px-2 py-0.5 rounded text-[10px] bg-emerald-500/20 text-emerald-400 font-bold">SOC 2</span>
+                        </div>
+                        <p class="text-xs text-slate-300 leading-relaxed">
+                            Requires proof of continuous data integrity and execution logging.
+                            Enforced by embedding orchestration pipeline UUIDs (<code class="text-indigo-400">_etl_job_id</code>, <code class="text-indigo-400">_pipeline_run_id</code>) and SHA-256 payload validation hashes into every row.
+                        </p>
+                    </div>
+
+                    <div class="p-5 rounded-xl border border-slate-800 bg-slate-950 space-y-2.5">
+                        <div class="flex items-center justify-between">
+                            <span class="font-bold text-white text-sm">GAAP / ASC 606 (Revenue Recognition)</span>
+                            <span class="px-2 py-0.5 rounded text-[10px] bg-yellow-500/20 text-yellow-400 font-bold">GAAP</span>
+                        </div>
+                        <p class="text-xs text-slate-300 leading-relaxed">
+                            Mandates precise recognition of subscription contract revenue over time without double counting.
+                            Enforced by non-overlapping Bi-Temporal SCD2 validity ranges and conformed date dimension surrogate joins.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="border-t border-slate-800 bg-slate-900/70 px-6 py-4 text-center text-xs text-slate-500 flex flex-col sm:flex-row items-center justify-between gap-2">
+        <span>💎 Enterprise Medallion Lakehouse Architecture Standard • Pure Python 3 & HTML Engine</span>
+        <span class="font-mono text-slate-600">Built with Standard Library Python (sqlite3) • Zero npm dependencies</span>
+    </footer>
+
+    <!-- Application Script -->
+    <script>
+        const PRESETS = {
+            silver_current: "SELECT \n    customer_account_id,\n    company_name,\n    tier_plan_cd,\n    mrr_amt,\n    country_iso_cd,\n    _valid_from_ts,\n    _is_current_flg\nFROM slv_ent_customer_account\nWHERE _is_current_flg = 1;",
+            
+            gold_star: "SELECT \n    f.order_id,\n    c.company_name,\n    c.tier_plan_cd,\n    p.product_name,\n    f.order_quantity_cnt,\n    f.gross_sales_amt,\n    f.cost_of_goods_sold_amt,\n    f.gross_margin_amt\nFROM gld_fct_order_sales f\nJOIN gld_dim_customer c ON f.customer_sk = c.customer_sk\nJOIN gld_dim_product p ON f.product_sk = p.product_sk\nORDER BY f.order_id;",
+            
+            hash_diff: "SELECT \n    order_id,\n    customer_account_id,\n    total_gross_amt,\n    SHA2(CONCAT_WS('||', customer_account_id, order_status_cd, total_gross_amt), 256) AS _computed_sha256_hash\nFROM slv_ent_order_header;",
+            
+            scd2_history: "SELECT \n    customer_account_id,\n    _version_seq_id,\n    tier_plan_cd,\n    seat_licensed_cnt,\n    mrr_amt,\n    _valid_from_ts,\n    _valid_to_ts,\n    _is_current_flg,\n    _record_hash\nFROM slv_ent_customer_account\nORDER BY customer_account_id, _version_seq_id;",
+            
+            tier_margins: "SELECT \n    c.tier_plan_cd,\n    COUNT(DISTINCT f.order_id) AS total_orders_cnt,\n    SUM(f.gross_sales_amt) AS total_gross_sales_amt,\n    SUM(f.cost_of_goods_sold_amt) AS total_cogs_amt,\n    SUM(f.gross_margin_amt) AS total_gross_margin_amt\nFROM gld_fct_order_sales f\nJOIN gld_dim_customer c ON f.customer_sk = c.customer_sk\nGROUP BY c.tier_plan_cd\nORDER BY total_gross_margin_amt DESC;",
+            
+            bronze_raw: "SELECT \n    payload_id,\n    event_type_cd,\n    account_id,\n    plan_tier,\n    mrr_amount,\n    _raw_payload_json,\n    _ingest_ts\nFROM brz_raw_customer_events\nORDER BY _ingest_ts DESC;"
+        };
+
+        const DDL_TEMPLATES = {
+            delta: `-- Databricks Delta Lake 3.0+ Enterprise SQL DDL
+-- Liquid clustering replaces legacy HIVE partition pruning
+CREATE OR REPLACE TABLE lakehouse_silver.slv_ent_customer_account (
+    customer_account_version_id VARCHAR(64) NOT NULL COMMENT 'Surrogate version ID: <account_id>_v<seq>',
+    customer_account_id         VARCHAR(64) NOT NULL COMMENT 'Natural business key',
+    _version_seq_id             INT NOT NULL COMMENT 'Monotonic version counter',
+    company_name                VARCHAR(255) NOT NULL,
+    primary_email               VARCHAR(255) NOT NULL,
+    tier_plan_cd                VARCHAR(32) NOT NULL,
+    account_status_cd           VARCHAR(32) NOT NULL,
+    seat_licensed_cnt           INT NOT NULL,
+    mrr_amt                     DECIMAL(18, 2) NOT NULL,
+    country_iso_cd              VARCHAR(8) NOT NULL,
+    is_enterprise_sla_flg       BOOLEAN NOT NULL,
+    _src_sys_cd                 VARCHAR(32) NOT NULL,
+    _ingest_ts                  TIMESTAMP NOT NULL,
+    _valid_from_ts              TIMESTAMP NOT NULL,
+    _valid_to_ts                TIMESTAMP NOT NULL,
+    _is_current_flg             BOOLEAN NOT NULL,
+    _record_hash                CHAR(64) NOT NULL,
+    _dq_score                   DECIMAL(5, 2) NOT NULL,
+    _etl_job_id                 VARCHAR(64) NOT NULL,
+    CONSTRAINT pk_customer PRIMARY KEY (customer_account_version_id)
+)
+USING DELTA
+CLUSTER BY (tier_plan_cd, customer_account_id)
+TBLPROPERTIES (
+    'delta.enableChangeDataFeed' = 'true',
+    'delta.autoOptimize.optimizeWrite' = 'true',
+    'delta.deletedFileRetentionDuration' = 'interval 30 days'
+);`,
+
+            snowflake: `-- Snowflake Enterprise SQL DDL
+-- Configured for 90-day time-travel and auto-clustering
+CREATE OR REPLACE TABLE LAKEHOUSE_SILVER.SLV_ENT_CUSTOMER_ACCOUNT (
+    CUSTOMER_ACCOUNT_VERSION_ID VARCHAR(64) NOT NULL,
+    CUSTOMER_ACCOUNT_ID         VARCHAR(64) NOT NULL,
+    _VERSION_SEQ_ID             NUMBER(38, 0) NOT NULL,
+    COMPANY_NAME                VARCHAR(255) NOT NULL,
+    PRIMARY_EMAIL               VARCHAR(255) NOT NULL,
+    TIER_PLAN_CD                VARCHAR(32) NOT NULL,
+    ACCOUNT_STATUS_CD           VARCHAR(32) NOT NULL,
+    SEAT_LICENSED_CNT           NUMBER(38, 0) NOT NULL,
+    MRR_AMT                     NUMBER(18, 2) NOT NULL,
+    COUNTRY_ISO_CD              VARCHAR(8) NOT NULL,
+    IS_ENTERPRISE_SLA_FLG       BOOLEAN NOT NULL,
+    _SRC_SYS_CD                 VARCHAR(32) NOT NULL,
+    _INGEST_TS                  TIMESTAMP_NTZ NOT NULL,
+    _VALID_FROM_TS              TIMESTAMP_NTZ NOT NULL,
+    _VALID_TO_TS                TIMESTAMP_NTZ NOT NULL,
+    _IS_CURRENT_FLG             BOOLEAN NOT NULL,
+    _RECORD_HASH                CHAR(64) NOT NULL,
+    _DQ_SCORE                   NUMBER(5, 2) NOT NULL,
+    _ETL_JOB_ID                 VARCHAR(64) NOT NULL,
+    CONSTRAINT PK_CUSTOMER PRIMARY KEY (CUSTOMER_ACCOUNT_VERSION_ID)
+)
+CLUSTER BY (TIER_PLAN_CD, CUSTOMER_ACCOUNT_ID);
+
+ALTER TABLE LAKEHOUSE_SILVER.SLV_ENT_CUSTOMER_ACCOUNT SET DATA_RETENTION_TIME_IN_DAYS = 90;`,
+
+            bigquery: `-- Google BigQuery SQL DDL
+-- Partitioned on valid_from timestamp and clustered by plan tier
+CREATE OR REPLACE TABLE \`gcp_project.lakehouse_silver.slv_ent_customer_account\` (
+    customer_account_version_id STRING NOT NULL,
+    customer_account_id         STRING NOT NULL,
+    _version_seq_id             INT64 NOT NULL,
+    company_name                STRING NOT NULL,
+    primary_email               STRING NOT NULL,
+    tier_plan_cd                STRING NOT NULL,
+    account_status_cd           STRING NOT NULL,
+    seat_licensed_cnt           INT64 NOT NULL,
+    mrr_amt                     NUMERIC(18, 2) NOT NULL,
+    country_iso_cd              STRING NOT NULL,
+    is_enterprise_sla_flg       BOOL NOT NULL,
+    _src_sys_cd                 STRING NOT NULL,
+    _ingest_ts                  TIMESTAMP NOT NULL,
+    _valid_from_ts              TIMESTAMP NOT NULL,
+    _valid_to_ts                TIMESTAMP NOT NULL,
+    _is_current_flg             BOOL NOT NULL,
+    _record_hash                STRING NOT NULL,
+    _dq_score                   NUMERIC(5, 2) NOT NULL,
+    _etl_job_id                 STRING NOT NULL
+)
+PARTITION BY DATE(_valid_from_ts)
+CLUSTER BY tier_plan_cd, customer_account_id
+OPTIONS (
+    description = "Silver Conformed Customer Account Entity with Bi-Temporal SCD2"
+);`,
+
+            ansi: `-- PostgreSQL / ANSI Standard SQL DDL
+CREATE TABLE slv_ent_customer_account (
+    customer_account_version_id VARCHAR(64) PRIMARY KEY,
+    customer_account_id         VARCHAR(64) NOT NULL,
+    _version_seq_id             INTEGER NOT NULL,
+    company_name                VARCHAR(255) NOT NULL,
+    primary_email               VARCHAR(255) NOT NULL,
+    tier_plan_cd                VARCHAR(32) NOT NULL,
+    account_status_cd           VARCHAR(32) NOT NULL,
+    seat_licensed_cnt           INTEGER NOT NULL CHECK (seat_licensed_cnt >= 0),
+    mrr_amt                     DECIMAL(18, 2) NOT NULL CHECK (mrr_amt >= 0),
+    country_iso_cd              VARCHAR(8) NOT NULL,
+    is_enterprise_sla_flg       SMALLINT NOT NULL DEFAULT 0,
+    _src_sys_cd                 VARCHAR(32) NOT NULL,
+    _ingest_ts                  TIMESTAMP WITH TIME ZONE NOT NULL,
+    _valid_from_ts              TIMESTAMP WITH TIME ZONE NOT NULL,
+    _valid_to_ts                TIMESTAMP WITH TIME ZONE NOT NULL,
+    _is_current_flg             SMALLINT NOT NULL DEFAULT 1,
+    _record_hash                CHAR(64) NOT NULL,
+    _dq_score                   DECIMAL(5, 2) NOT NULL DEFAULT 100.00,
+    _etl_job_id                 VARCHAR(64) NOT NULL
+);
+
+CREATE INDEX idx_slv_cust_active ON slv_ent_customer_account (customer_account_id) WHERE _is_current_flg = 1;
+CREATE INDEX idx_slv_cust_hash ON slv_ent_customer_account (_record_hash);`,
+
+            dbt: `{{
+    config(
+        materialized = 'incremental',
+        unique_key = 'customer_account_version_id',
+        incremental_strategy = 'merge',
+        cluster_by = ['tier_plan_cd', 'customer_account_id']
+    )
+}}
+
+WITH source_data AS (
+    SELECT 
+        account_id AS customer_account_id,
+        plan_tier AS tier_plan_cd,
+        mrr_amount AS mrr_amt,
+        country_code AS country_iso_cd,
+        _raw_payload_json,
+        _src_sys_cd,
+        _ingest_ts,
+        SHA2(
+            CONCAT_WS('||',
+                COALESCE(UPPER(TRIM(account_id)), ''),
+                COALESCE(UPPER(TRIM(plan_tier)), ''),
+                COALESCE(CAST(mrr_amount AS STRING), '0.00'),
+                COALESCE(UPPER(TRIM(country_code)), '')
+            ),
+            256
+        ) AS _record_hash
+    FROM {{ ref('brz_raw_customer_events') }}
+    {% if is_incremental() %}
+        WHERE _ingest_ts > (SELECT MAX(_ingest_ts) FROM {{ this }})
+    {% endif %}
+)
+SELECT * FROM source_data;`
+        };
+
+        let lastQueryData = null;
+
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-view').forEach(el => el.classList.add('hidden'));
+            document.querySelectorAll('.tab-btn').forEach(el => {
+                el.classList.remove('border-indigo-500', 'text-indigo-400');
+                el.classList.add('border-transparent', 'text-slate-400');
+            });
+
+            const targetView = document.getElementById('view-' + tabId);
+            const targetBtn = document.getElementById('tab-' + tabId);
+            if (targetView) targetView.classList.remove('hidden');
+            if (targetBtn) {
+                targetBtn.classList.add('border-indigo-500', 'text-indigo-400');
+                targetBtn.classList.remove('border-transparent', 'text-slate-400');
+            }
+
+            if (tabId === 'schema') loadTables();
+            if (tabId === 'ddl') showDdl('delta');
+        }
+
+        function loadTemplate(key) {
+            document.getElementById('sql-editor').value = PRESETS[key] || '';
+            runQuery();
+        }
+
+        async function runQuery() {
+            const sql = document.getElementById('sql-editor').value.trim();
+            if (!sql) return;
+
+            const runBtn = document.getElementById('run-btn');
+            const statusText = document.getElementById('status-text');
+            const execTime = document.getElementById('exec-time');
+            const resultsContainer = document.getElementById('results-container');
+            const countBadge = document.getElementById('row-count-badge');
+
+            runBtn.disabled = true;
+            statusText.innerText = "Executing in Python SQLite engine...";
+            statusText.className = "text-slate-400";
+
+            try {
+                const res = await fetch('/api/execute-sql', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ sql })
+                });
+                const data = await res.json();
+                runBtn.disabled = false;
+                lastQueryData = data;
+
+                if (!data.success) {
+                    statusText.innerText = "SQL Error: " + data.error;
+                    statusText.className = "text-red-400 font-bold";
+                    execTime.innerText = data.executionTimeMs + "ms";
+                    resultsContainer.innerHTML = '<div class="p-6 text-xs text-red-400 font-mono bg-red-950/20 border border-red-900/40 rounded-xl m-4">✕ ' + data.error + '</div>';
+                    countBadge.innerText = '0 rows';
+                    return;
+                }
+
+                statusText.innerText = "Query completed successfully.";
+                statusText.className = "text-emerald-400 font-semibold";
+                execTime.innerText = data.executionTimeMs + "ms (Python In-Memory SQLite)";
+                countBadge.innerText = data.rowCount + " rows";
+
+                if (data.rows.length === 0) {
+                    resultsContainer.innerHTML = '<div class="p-8 text-center text-xs text-slate-500 font-mono">Statement executed successfully. 0 rows returned. (Affected: ' + data.affectedRows + ')</div>';
+                    return;
+                }
+
+                let html = '<table class="w-full text-left text-xs border-collapse font-mono">';
+                html += '<thead><tr class="border-b border-slate-800 bg-slate-900/90 text-slate-400 text-[11px] sticky top-0">';
+                data.columns.forEach(col => {
+                    html += '<th class="py-2.5 px-3.5 whitespace-nowrap">' + col + '</th>';
+                });
+                html += '</tr></thead><tbody class="divide-y divide-slate-800/60 text-slate-300">';
+
+                data.rows.forEach(row => {
+                    html += '<tr class="hover:bg-slate-900/60 transition">';
+                    row.forEach(cell => {
+                        let formatted = cell;
+                        if (cell === null) {
+                            formatted = '<span class="text-slate-600 italic">NULL</span>';
+                        } else if (typeof cell === 'number' && !Number.isInteger(cell)) {
+                            formatted = cell.toFixed(2);
+                        }
+                        html += '<td class="py-2 px-3.5 whitespace-nowrap">' + formatted + '</td>';
+                    });
+                    html += '</tr>';
+                });
+                html += '</tbody></table>';
+                resultsContainer.innerHTML = html;
+            } catch (err) {
+                runBtn.disabled = false;
+                statusText.innerText = "Execution failed: " + err.message;
+                statusText.className = "text-red-400 font-bold";
+            }
+        }
+
+        function copyResultsAsCsv() {
+            if (!lastQueryData || !lastQueryData.rows || lastQueryData.rows.length === 0) {
+                alert("No query results to copy.");
+                return;
+            }
+            const header = lastQueryData.columns.join(',');
+            const rows = lastQueryData.rows.map(r => r.map(c => `"${c !== null ? c : ''}"`).join(','));
+            const csv = [header, ...rows].join('\n');
+            navigator.clipboard.writeText(csv).then(() => {
+                const btn = document.getElementById('btn-copy-csv');
+                btn.innerText = "✓ Copied CSV!";
+                setTimeout(() => { btn.innerText = "📋 Copy CSV"; }, 2000);
+            });
+        }
+
+        async function simulateScd2() {
+            const btn = document.getElementById('btn-sim');
+            const accountId = document.getElementById('sim-account').value;
+            const tier = document.getElementById('sim-tier').value;
+            const mrr = parseFloat(document.getElementById('sim-mrr').value);
+            const seats = parseInt(document.getElementById('sim-seats').value);
+
+            btn.disabled = true;
+            btn.innerText = "Simulating CDC Event...";
+
+            try {
+                const res = await fetch('/api/scd2-simulate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        account_id: accountId,
+                        tier_plan_cd: tier,
+                        mrr_amt: mrr,
+                        seat_licensed_cnt: seats,
+                        company_name: 'Acme Corp'
+                    })
+                });
+                const data = await res.json();
+                btn.disabled = false;
+                btn.innerText = "Trigger Upstream CDC Event & Simulate SCD2";
+
+                const resultBox = document.getElementById('sim-result-box');
+                resultBox.classList.remove('hidden');
+
+                const badge = document.getElementById('sim-badge');
+                if (data.changeDetected) {
+                    badge.className = "px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-500/20 text-emerald-400 border border-emerald-500/30";
+                    badge.innerText = "Diff Detected • New Version Appended";
+
+                    const c = data.closedVersion;
+                    document.getElementById('sim-closed-details').innerHTML = `
+                        <div>Version ID: <strong class="text-white">${c.versionId}</strong> (Seq: ${c.seq})</div>
+                        <div>Tier: <span class="text-slate-400">${c.tier}</span></div>
+                        <div>MRR: <span class="text-slate-400">$${c.mrr.toFixed(2)}</span> (${c.seats} seats)</div>
+                        <div>Valid From: ${c.validFrom}</div>
+                        <div>Valid To: <span class="text-red-400 font-bold">${c.validTo} (EXPIRED)</span></div>
+                        <div class="text-[10px] text-slate-500 truncate">Hash: ${c.recordHash}</div>
+                    `;
+
+                    const n = data.newVersion;
+                    document.getElementById('sim-new-details').innerHTML = `
+                        <div>Version ID: <strong class="text-emerald-300">${n.versionId}</strong> (Seq: ${n.seq})</div>
+                        <div>Tier: <strong class="text-emerald-400">${n.tier}</strong></div>
+                        <div>MRR: <strong class="text-emerald-400">$${n.mrr.toFixed(2)}</strong> (${n.seats} seats)</div>
+                        <div>Valid From: <strong class="text-white">${n.validFrom} (ACTIVE)</strong></div>
+                        <div>Valid To: <span class="text-slate-400">${n.validTo}</span></div>
+                        <div class="text-[10px] text-emerald-500 truncate">New Hash: ${n.recordHash}</div>
+                    `;
+                } else {
+                    badge.className = "px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-amber-500/20 text-amber-400 border border-amber-500/30";
+                    badge.innerText = "Idempotent Bypass • Identical Hash";
+                    document.getElementById('sim-closed-details').innerHTML = `<div class="p-3 text-slate-400">${data.message}</div>`;
+                    document.getElementById('sim-new-details').innerHTML = `<div class="p-3 text-slate-400">Current active record retained without duplicate insertion.</div>`;
+                }
+            } catch (err) {
+                btn.disabled = false;
+                btn.innerText = "Trigger Upstream CDC Event & Simulate SCD2";
+                alert("Simulation failed: " + err.message);
+            }
+        }
+
+        function viewAccountInSql() {
+            const accId = document.getElementById('sim-account').value;
+            switchTab('sql');
+            document.getElementById('sql-editor').value = `SELECT customer_account_id, _version_seq_id, tier_plan_cd, seat_licensed_cnt, mrr_amt, _valid_from_ts, _valid_to_ts, _is_current_flg, _record_hash\nFROM slv_ent_customer_account\nWHERE customer_account_id = '${accId}'\nORDER BY _version_seq_id;`;
+            runQuery();
+        }
+
+        async function loadTables() {
+            const grid = document.getElementById('tables-grid');
+            try {
+                const res = await fetch('/api/tables');
+                const data = await res.json();
+                let html = '';
+                data.tables.forEach(tbl => {
+                    const badgeClass = tbl.layer === 'bronze' 
+                        ? 'bg-amber-500/15 text-amber-400 border-amber-500/30' 
+                        : (tbl.layer === 'silver' ? 'bg-slate-700/50 text-slate-300 border-slate-600' : 'bg-yellow-500/15 text-yellow-400 border-yellow-500/30');
+                    html += `
+                        <div class="p-5 rounded-xl border border-slate-800 bg-slate-950 flex flex-col justify-between hover:border-slate-700 transition">
+                            <div>
+                                <div class="flex items-center justify-between mb-2">
+                                    <span class="font-mono text-xs font-bold text-white">${tbl.name}</span>
+                                    <span class="px-2 py-0.5 rounded text-[10px] uppercase font-bold border ${badgeClass}">${tbl.layer}</span>
+                                </div>
+                                <p class="text-xs text-slate-400">Record count: <strong class="text-emerald-400 font-mono">${tbl.rowCount}</strong> rows</p>
+                            </div>
+                            <div class="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between">
+                                <button onclick="inspectTable('${tbl.name}')" class="text-[11px] text-slate-400 hover:text-white font-mono">Inspect Schema →</button>
+                                <button onclick="queryTable('${tbl.name}')" class="text-[11px] text-indigo-400 hover:text-indigo-300 font-mono font-bold">Query Table ⚡</button>
+                            </div>
+                        </div>
+                    `;
+                });
+                grid.innerHTML = html;
+            } catch (err) {
+                grid.innerHTML = '<div class="p-4 text-xs text-red-400">Failed to load table list: ' + err.message + '</div>';
+            }
+        }
+
+        async function inspectTable(tableName) {
+            const inspector = document.getElementById('table-inspector');
+            const title = document.getElementById('inspect-title');
+            const content = document.getElementById('inspect-content');
+
+            inspector.classList.remove('hidden');
+            title.innerText = 'Table: ' + tableName;
+            content.innerHTML = '<div class="p-6 text-center text-xs text-slate-400 font-mono">Loading table schema & sample rows...</div>';
+
+            try {
+                const res = await fetch('/api/table/' + tableName);
+                const data = await res.json();
+
+                let html = '<div class="p-4 bg-slate-900 border-b border-slate-800 text-xs font-bold text-slate-300 uppercase tracking-wider">Columns</div>';
+                html += '<table class="w-full text-left text-xs border-collapse font-mono mb-4">';
+                html += '<thead><tr class="border-b border-slate-800 bg-slate-950 text-slate-400 text-[11px]">';
+                html += '<th class="py-2 px-3">Column Name</th><th class="py-2 px-3">Type</th><th class="py-2 px-3">Primary Key</th><th class="py-2 px-3">Not Null</th>';
+                html += '</tr></thead><tbody class="divide-y divide-slate-800/50 text-slate-300 text-[11px]">';
+                data.columns.forEach(c => {
+                    html += `<tr><td class="py-1.5 px-3 text-indigo-300 font-bold">${c.name}</td><td class="py-1.5 px-3 text-slate-400">${c.type}</td><td class="py-1.5 px-3">${c.pk ? '<span class="text-amber-400 font-bold">PK</span>' : '—'}</td><td class="py-1.5 px-3">${c.notNull ? 'YES' : 'NO'}</td></tr>`;
+                });
+                html += '</tbody></table>';
+
+                content.innerHTML = html;
+                inspector.scrollIntoView({ behavior: 'smooth' });
+            } catch (err) {
+                content.innerHTML = '<div class="p-6 text-xs text-red-400">Error inspecting table: ' + err.message + '</div>';
+            }
+        }
+
+        function queryTable(tableName) {
+            switchTab('sql');
+            document.getElementById('sql-editor').value = `SELECT * FROM ${tableName} LIMIT 50;`;
+            runQuery();
+        }
+
+        function showDdl(dialect) {
+            document.querySelectorAll('.ddl-btn').forEach(btn => {
+                btn.className = 'ddl-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 text-slate-400 hover:text-white transition';
+            });
+            const activeBtn = document.getElementById('btn-ddl-' + dialect);
+            if (activeBtn) activeBtn.className = 'ddl-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 text-white transition';
+            document.getElementById('ddl-output').innerText = DDL_TEMPLATES[dialect] || '';
+        }
+
+        function copyDdl() {
+            const ddl = document.getElementById('ddl-output').innerText;
+            navigator.clipboard.writeText(ddl).then(() => {
+                const btn = document.getElementById('btn-copy-ddl');
+                btn.innerText = "✓ Copied DDL!";
+                setTimeout(() => { btn.innerText = "📋 Copy DDL"; }, 2000);
+            });
+        }
+
+        async function resetDatabase() {
+            if (!confirm("Re-initialize the in-memory SQLite database to default benchmark fixtures?")) return;
+            try {
+                const res = await fetch('/api/reset-db', { method: 'POST' });
+                const data = await res.json();
+                alert(data.message || "Database reset successfully!");
+                loadTemplate('silver_current');
+            } catch (err) {
+                alert("Failed to reset database: " + err.message);
+            }
+        }
+
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('sql-editor').value = PRESETS.silver_current;
+            showDdl('delta');
+
+            // Keyboard shortcut: Ctrl+Enter or Cmd+Enter to run SQL
+            document.getElementById('sql-editor').addEventListener('keydown', (e) => {
+                if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                    e.preventDefault();
+                    runQuery();
+                }
+            });
+        });
+    </script>
+</body>
+</html>
